@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MCP Toolbox{% endblock %}</title>
+    <link rel="icon" type="image/svg+xml" href="/static/favicon.svg">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+        }
+    </script>
+    <style>
+        .badge-python { background-color: #3776ab; }
+        .badge-shell { background-color: #4eaa25; }
+        .badge-java { background-color: #f89820; }
+        .badge-sql { background-color: #4479a1; }
+        .status-success { color: #16a34a; }
+        .dark .status-success { color: #4ade80; }
+        .status-error { color: #dc2626; }
+        .dark .status-error { color: #f87171; }
+        pre.json-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            overflow-x: auto;
+            font-size: 0.875rem;
+            max-height: 400px;
+        }
+        pre.code-block {
+            background: #1e293b;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 0.75rem;
+            overflow-x: auto;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+        /* Smooth transitions for theme switching */
+        body, .theme-transition, .theme-transition * {
+            transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+        }
+        /* Nav link hover effect */
+        .nav-link { position: relative; }
+        .nav-link::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 50%;
+            width: 0;
+            height: 2px;
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            border-radius: 1px;
+            transition: width 0.25s ease, left 0.25s ease;
+        }
+        .nav-link:hover::after, .nav-link.active::after {
+            width: 80%;
+            left: 10%;
+        }
+        /* Nav gradient glow line */
+        .nav-glow {
+            height: 2px;
+            background: linear-gradient(90deg, #3b82f6, #8b5cf6, #ec4899, #f59e0b);
+            background-size: 200% 100%;
+            animation: glow-slide 8s ease infinite;
+        }
+        @keyframes glow-slide {
+            0%, 100% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+        }
+        /* Card hover lift */
+        .card-hover {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px -5px rgba(0,0,0,0.1), 0 4px 10px -5px rgba(0,0,0,0.04);
+        }
+        .dark .card-hover:hover {
+            box-shadow: 0 8px 25px -5px rgba(0,0,0,0.4), 0 4px 10px -5px rgba(0,0,0,0.2);
+        }
+        /* Stat accent bar */
+        .stat-accent {
+            position: relative;
+            overflow: hidden;
+        }
+        .stat-accent::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            border-radius: 0 4px 4px 0;
+        }
+        .accent-blue::before { background: linear-gradient(180deg, #3b82f6, #60a5fa); }
+        .accent-purple::before { background: linear-gradient(180deg, #8b5cf6, #a78bfa); }
+        .accent-green::before { background: linear-gradient(180deg, #10b981, #34d399); }
+        .accent-amber::before { background: linear-gradient(180deg, #f59e0b, #fbbf24); }
+        /* Section header accent */
+        .section-accent {
+            border-left: 3px solid;
+            border-image: linear-gradient(180deg, #3b82f6, #8b5cf6) 1;
+        }
+        /* Table row hover glow */
+        .row-hover {
+            transition: background-color 0.15s ease;
+        }
+        /* Scrollbar styling */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+        .dark ::-webkit-scrollbar-thumb { background: #475569; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+    </style>
+    <!-- Theme init (before paint to avoid flash) -->
+    <script>
+        (function() {
+            const pref = localStorage.getItem('theme') || 'system';
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (pref === 'dark' || (pref === 'system' && prefersDark)) {
+                document.documentElement.classList.add('dark');
+            }
+        })();
+    </script>
+</head>
+<body class="bg-slate-50 dark:bg-slate-950 min-h-screen text-gray-900 dark:text-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-slate-900 dark:bg-slate-950 shadow-xl sticky top-0 z-50 backdrop-blur-sm bg-opacity-95 dark:bg-opacity-95">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <!-- Left: brand + nav links -->
+                <div class="flex items-center space-x-8">
+                    <a href="/" class="flex items-center gap-3 text-white font-bold text-lg tracking-tight">
+                        <img src="/static/favicon.svg" alt="MCP Toolbox" class="w-9 h-9 rounded-lg shadow-lg shadow-blue-500/20">
+                        <span class="bg-gradient-to-r from-white to-slate-300 bg-clip-text text-transparent">MCP Toolbox</span>
+                    </a>
+                    <div class="hidden sm:flex items-center space-x-1">
+                        <a href="/" class="nav-link text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" data-i18n="nav.dashboard">Dashboard</a>
+                        <a href="/tools" class="nav-link text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" data-i18n="nav.tools">Tools</a>
+                        <a href="/logs" class="nav-link text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" data-i18n="nav.logs">Logs</a>
+                        <a href="/access" class="nav-link text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" data-i18n="nav.tokens">Access</a>
+                    </div>
+                </div>
+                <!-- Right: language + theme toggles -->
+                <div class="flex items-center space-x-3">
+                    <!-- Language toggle -->
+                    <button id="lang-toggle" onclick="toggleLang()" class="text-slate-400 hover:text-white px-2.5 py-1.5 rounded-lg text-sm font-medium transition-colors hover:bg-slate-800">
+                        EN
+                    </button>
+                    <!-- Theme toggle -->
+                    <div class="flex items-center bg-slate-800 dark:bg-slate-900 rounded-lg p-0.5 border border-slate-700/50">
+                        <button onclick="setTheme('light')" id="theme-light" class="p-1.5 rounded-md text-slate-400 hover:text-white transition-colors" title="Light">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+                        </button>
+                        <button onclick="setTheme('system')" id="theme-system" class="p-1.5 rounded-md text-slate-400 hover:text-white transition-colors" title="System">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                        </button>
+                        <button onclick="setTheme('dark')" id="theme-dark" class="p-1.5 rounded-md text-slate-400 hover:text-white transition-colors" title="Dark">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Gradient glow line -->
+        <div class="nav-glow"></div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
+        <div class="border-t border-gray-200 dark:border-slate-800 pt-6 flex items-center justify-between text-xs text-gray-400 dark:text-slate-500">
+            <span>MCP Toolbox</span>
+            <span>Powered by FastMCP + FastAPI</span>
+        </div>
+    </footer>
+
+    <!-- i18n + Theme Scripts -->
+    <script>
+    // ── i18n ──
+    const I18N = {
+        zh: {
+            'nav.dashboard': '仪表盘',
+            'nav.tools': '工具',
+            'nav.logs': '日志',
+            'nav.tokens': '访问控制',
+            'dashboard.title': '仪表盘',
+            'dashboard.total_tools': '工具总数',
+            'dashboard.total_calls': '调用次数',
+            'dashboard.success_rate': '成功率',
+            'dashboard.avg_duration': '平均耗时',
+            'dashboard.calls_per_tool': '按工具统计',
+            'dashboard.no_calls': '暂无调用记录。工具首次调用后将显示在此处。',
+            'dashboard.registered_tools': '已注册工具',
+            'dashboard.search_tools': '搜索工具...',
+            'dashboard.tool': '工具',
+            'dashboard.type': '类型',
+            'dashboard.calls': '调用',
+            'dashboard.success': '成功',
+            'dashboard.errors': '错误',
+            'tools.title': '工具',
+            'tools.all': '全部',
+            'tools.name': '名称',
+            'tools.description': '描述',
+            'tools.parameters': '参数',
+            'tools.module': '模块',
+            'tool_detail.total_calls': '总调用',
+            'tool_detail.success_rate': '成功率',
+            'tool_detail.avg_duration': '平均耗时',
+            'tool_detail.max_duration': '最大耗时',
+            'tool_detail.parameters': '参数',
+            'tool_detail.name': '名称',
+            'tool_detail.type': '类型',
+            'tool_detail.required': '必填',
+            'tool_detail.description': '描述',
+            'tool_detail.default': '默认值',
+            'tool_detail.yes': '是',
+            'tool_detail.no': '否',
+            'tool_detail.no_params': '无参数',
+            'tool_detail.source_code': '源码',
+            'tool_detail.command_template': '命令模板',
+            'tool_detail.query': '查询',
+            'tool_detail.configuration': '配置',
+            'tool_detail.connection': '连接',
+            'tool_detail.recent_calls': '近期调用',
+            'tool_detail.no_calls': '该工具暂无调用记录。',
+            'tool_detail.test_tool': '工具测试',
+            'tool_detail.test_not_counted': '不计入统计数据',
+            'tool_detail.run_test': '运行测试',
+            'tool_detail.time': '时间',
+            'tool_detail.status': '状态',
+            'tool_detail.duration': '耗时',
+            'tool_detail.input': '输入',
+            'tool_detail.output': '输出',
+            'tool_detail.input_params': '输入参数',
+            'tool_detail.error': '错误',
+            'logs.title': '调用日志',
+            'logs.tool': '工具：',
+            'logs.all_tools': '全部工具',
+            'logs.status': '状态：',
+            'logs.all': '全部',
+            'logs.success': '成功',
+            'logs.error': '错误',
+            'logs.error_type': '错误类型：',
+            'logs.refresh': '刷新',
+            'logs.id': 'ID',
+            'logs.time': '时间',
+            'logs.tool_col': '工具',
+            'logs.type': '类型',
+            'logs.status_col': '状态',
+            'logs.error_type_col': '错误类型',
+            'logs.duration': '耗时',
+            'logs.input': '输入',
+            'logs.output_error': '输出/错误',
+            'logs.input_params': '输入参数',
+            'logs.error_details': '错误详情',
+            'logs.output': '输出',
+            'logs.category': '分类',
+            'logs.no_logs': '暂无日志记录。',
+            'tokens.title': '访问控制',
+            'tokens.new': '+ 新建令牌',
+            'tokens.admin_required': '需要管理员令牌',
+            'tokens.enter_token': '请输入管理员令牌以管理访问权限',
+            'tokens.login': '登录',
+            'tokens.name': '名称',
+            'tokens.token': '令牌',
+            'tokens.status': '状态',
+            'tokens.allowed_tools': '允许的工具',
+            'tokens.created': '创建时间',
+            'tokens.actions': '操作',
+            'tokens.copy': '复制',
+            'tokens.enabled': '已启用',
+            'tokens.disabled': '已禁用',
+            'tokens.all_tools': '全部工具',
+            'tokens.edit': '编辑',
+            'tokens.disable': '禁用',
+            'tokens.enable': '启用',
+            'tokens.delete': '删除',
+            'tokens.no_tokens': '暂无令牌。点击"新建令牌"创建。',
+            'tokens.new_token': '新建令牌',
+            'tokens.edit_token': '编辑令牌',
+            'tokens.cancel': '取消',
+            'tokens.save': '保存',
+            'tokens.allowed_tools_label': '允许的工具',
+            'tokens.leave_unchecked': '不勾选 = 允许使用全部工具',
+        },
+        en: {
+            'nav.dashboard': 'Dashboard',
+            'nav.tools': 'Tools',
+            'nav.logs': 'Logs',
+            'nav.tokens': 'Access',
+            'dashboard.title': 'Dashboard',
+            'dashboard.total_tools': 'Total Tools',
+            'dashboard.total_calls': 'Total Calls',
+            'dashboard.success_rate': 'Success Rate',
+            'dashboard.avg_duration': 'Avg Duration',
+            'dashboard.calls_per_tool': 'Calls per Tool',
+            'dashboard.no_calls': 'No calls recorded yet. Tools will appear here after their first invocation.',
+            'dashboard.registered_tools': 'Registered Tools',
+            'dashboard.search_tools': 'Search tools...',
+            'dashboard.tool': 'Tool',
+            'dashboard.type': 'Type',
+            'dashboard.calls': 'Calls',
+            'dashboard.success': 'Success',
+            'dashboard.errors': 'Errors',
+            'tools.title': 'Tools',
+            'tools.all': 'All',
+            'tools.name': 'Name',
+            'tools.description': 'Description',
+            'tools.parameters': 'Parameters',
+            'tools.module': 'Module',
+            'tool_detail.total_calls': 'Total Calls',
+            'tool_detail.success_rate': 'Success Rate',
+            'tool_detail.avg_duration': 'Avg Duration',
+            'tool_detail.max_duration': 'Max Duration',
+            'tool_detail.parameters': 'Parameters',
+            'tool_detail.name': 'Name',
+            'tool_detail.type': 'Type',
+            'tool_detail.required': 'Required',
+            'tool_detail.description': 'Description',
+            'tool_detail.default': 'Default',
+            'tool_detail.yes': 'Yes',
+            'tool_detail.no': 'No',
+            'tool_detail.no_params': 'No parameters',
+            'tool_detail.source_code': 'Source Code',
+            'tool_detail.command_template': 'Command Template',
+            'tool_detail.query': 'Query',
+            'tool_detail.configuration': 'Configuration',
+            'tool_detail.connection': 'Connection',
+            'tool_detail.recent_calls': 'Recent Calls',
+            'tool_detail.no_calls': 'No calls recorded for this tool yet.',
+            'tool_detail.test_tool': 'Test Tool',
+            'tool_detail.test_not_counted': 'Not counted in statistics',
+            'tool_detail.run_test': 'Run Test',
+            'tool_detail.time': 'Time',
+            'tool_detail.status': 'Status',
+            'tool_detail.duration': 'Duration',
+            'tool_detail.input': 'Input',
+            'tool_detail.output': 'Output',
+            'tool_detail.input_params': 'Input Parameters',
+            'tool_detail.error': 'Error',
+            'logs.title': 'Call Logs',
+            'logs.tool': 'Tool:',
+            'logs.all_tools': 'All Tools',
+            'logs.status': 'Status:',
+            'logs.all': 'All',
+            'logs.success': 'Success',
+            'logs.error': 'Error',
+            'logs.error_type': 'Error Type:',
+            'logs.refresh': 'Refresh',
+            'logs.id': 'ID',
+            'logs.time': 'Time',
+            'logs.tool_col': 'Tool',
+            'logs.type': 'Type',
+            'logs.status_col': 'Status',
+            'logs.error_type_col': 'Error Type',
+            'logs.duration': 'Duration',
+            'logs.input': 'Input',
+            'logs.output_error': 'Output/Error',
+            'logs.input_params': 'Input Parameters',
+            'logs.error_details': 'Error Details',
+            'logs.output': 'Output',
+            'logs.category': 'Category',
+            'logs.no_logs': 'No log entries found.',
+            'tokens.title': 'Access Control',
+            'tokens.new': '+ New Token',
+            'tokens.admin_required': 'Admin token required',
+            'tokens.enter_token': 'Enter admin token to manage access',
+            'tokens.login': 'Login',
+            'tokens.name': 'Name',
+            'tokens.token': 'Token',
+            'tokens.status': 'Status',
+            'tokens.allowed_tools': 'Allowed Tools',
+            'tokens.created': 'Created',
+            'tokens.actions': 'Actions',
+            'tokens.copy': 'Copy',
+            'tokens.enabled': 'Enabled',
+            'tokens.disabled': 'Disabled',
+            'tokens.all_tools': 'All tools',
+            'tokens.edit': 'Edit',
+            'tokens.disable': 'Disable',
+            'tokens.enable': 'Enable',
+            'tokens.delete': 'Delete',
+            'tokens.no_tokens': 'No tokens yet. Click "New Token" to create one.',
+            'tokens.new_token': 'New Token',
+            'tokens.edit_token': 'Edit Token',
+            'tokens.cancel': 'Cancel',
+            'tokens.save': 'Save',
+            'tokens.allowed_tools_label': 'Allowed Tools',
+            'tokens.leave_unchecked': 'Leave unchecked = all tools allowed',
+        }
+    };
+
+    let currentLang = localStorage.getItem('lang') || (navigator.language.startsWith('zh') ? 'zh' : 'en');
+
+    function applyI18n() {
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+            const key = el.getAttribute('data-i18n');
+            const val = I18N[currentLang]?.[key];
+            if (val !== undefined) {
+                if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
+                    el.placeholder = val;
+                } else {
+                    el.textContent = val;
+                }
+            }
+        });
+        document.getElementById('lang-toggle').textContent = currentLang === 'zh' ? 'EN' : '中';
+        document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+    }
+
+    function toggleLang() {
+        currentLang = currentLang === 'zh' ? 'en' : 'zh';
+        localStorage.setItem('lang', currentLang);
+        applyI18n();
+    }
+
+    // ── Theme ──
+    function setTheme(mode) {
+        localStorage.setItem('theme', mode);
+        applyTheme(mode);
+    }
+
+    function applyTheme(mode) {
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = mode === 'dark' || (mode === 'system' && prefersDark);
+        document.documentElement.classList.toggle('dark', isDark);
+
+        ['light', 'system', 'dark'].forEach(m => {
+            const btn = document.getElementById('theme-' + m);
+            if (btn) {
+                if (m === mode) {
+                    btn.classList.add('bg-slate-600', 'text-white');
+                    btn.classList.remove('text-slate-400');
+                } else {
+                    btn.classList.remove('bg-slate-600', 'text-white');
+                    btn.classList.add('text-slate-400');
+                }
+            }
+        });
+    }
+
+    // Init
+    applyTheme(localStorage.getItem('theme') || 'system');
+    applyI18n();
+
+    // Listen for system theme changes
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        if ((localStorage.getItem('theme') || 'system') === 'system') {
+            applyTheme('system');
+        }
+    });
+
+    // Mark active nav link
+    document.querySelectorAll('.nav-link').forEach(link => {
+        if (link.pathname === window.location.pathname ||
+            (link.pathname !== '/' && window.location.pathname.startsWith(link.pathname))) {
+            link.classList.add('active', 'text-white');
+            link.classList.remove('text-slate-400');
+        }
+    });
+    </script>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

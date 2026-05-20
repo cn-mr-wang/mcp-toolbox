@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}Tokens - MCP Toolbox{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-i18n="tokens.title">Token Management</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Manage tool access for MCP clients</p>
+        </div>
+        {% if not admin_required or authenticated %}
+        <button onclick="showCreateModal()" class="bg-slate-900 dark:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm" data-i18n="tokens.new">
+            + New Token
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Admin Login -->
+    {% if admin_required and not authenticated %}
+    <div id="login-area" class="bg-white dark:bg-slate-800/80 rounded-xl shadow-sm border border-gray-200/80 dark:border-slate-700/50 p-8 max-w-md mx-auto">
+        <div class="text-center mb-6">
+            <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100" data-i18n="tokens.admin_required">Admin token required</h3>
+            <p class="mt-1 text-xs text-gray-400 dark:text-slate-500" data-i18n="tokens.enter_token">Enter admin token to manage access</p>
+        </div>
+        <div class="space-y-3">
+            <input id="admin-token-input" type="password" placeholder="Admin token"
+                class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 text-center focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all"
+                onkeydown="if(event.key==='Enter') adminLogin()">
+            <button onclick="adminLogin()" class="w-full bg-slate-900 dark:bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm" data-i18n="tokens.login">
+                Login
+            </button>
+            <div id="login-error" class="text-red-500 dark:text-red-400 text-xs text-center hidden"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not admin_required or authenticated %}
+    <!-- Token Table -->
+    <div class="bg-white dark:bg-slate-800/80 rounded-xl shadow-sm border border-gray-200/80 dark:border-slate-700/50 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100 dark:divide-slate-700/50">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="tokens.name">Name</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="tokens.token">Token</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="tokens.status">Status</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="tokens.allowed_tools">Allowed Tools</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="tokens.created">Created</th>
+                        <th class="px-4 py-3.5 text-right text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="tokens.actions">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50 dark:divide-slate-700/30" id="tokens-body">
+                    {% for t in tokens %}
+                    <tr class="row-hover hover:bg-gray-50/50 dark:hover:bg-slate-700/30" data-id="{{ t.id }}">
+                        <td class="px-4 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">{{ t.name }}</td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-sm">
+                            <code class="bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-md text-xs font-mono text-gray-700 dark:text-slate-300">
+                                {{ t.token[:8] }}...{{ t.token[-4:] }}
+                            </code>
+                            <button onclick="copyToken('{{ t.token }}')" class="ml-1.5 text-gray-400 hover:text-gray-600 dark:hover:text-slate-200 text-xs transition-colors" title="Copy" data-i18n="tokens.copy">
+                                Copy
+                            </button>
+                        </td>
+                        <td class="px-4 py-3.5 whitespace-nowrap">
+                            {% if t.enabled %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" data-i18n="tokens.enabled">Enabled</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-slate-700 text-gray-600 dark:text-slate-400" data-i18n="tokens.disabled">Disabled</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3.5 text-sm text-gray-500 dark:text-slate-400 max-w-md">
+                            {% if t.allowed_tools is none %}
+                            <span class="text-emerald-600 dark:text-emerald-400 font-medium" data-i18n="tokens.all_tools">All tools</span>
+                            {% else %}
+                            <div class="flex flex-wrap gap-1">
+                                {% for tool_name in t.allowed_tools %}
+                                <span class="inline-flex items-center gap-1 bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-md text-xs" title="{{ tool_info.get(tool_name, '') }}">
+                                    <span class="font-medium text-gray-700 dark:text-slate-300">{{ tool_name }}</span>
+                                    {% set desc = tool_info.get(tool_name, '') %}
+                                    {% if desc %}
+                                    <span class="text-gray-400 dark:text-slate-500">{{ desc[:12] }}{{ '...' if desc|length > 12 else '' }}</span>
+                                    {% endif %}
+                                </span>
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{{ t.created_at[:10] }}</td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-right text-sm">
+                            <button onclick="editToken({{ t.id }})" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mr-3 transition-colors" data-i18n="tokens.edit">Edit</button>
+                            <button onclick="toggleToken({{ t.id }}, {{ 'false' if t.enabled else 'true' }})"
+                                class="text-amber-600 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 mr-3 transition-colors">
+                                <span {% if t.enabled %}data-i18n="tokens.disable"{% else %}data-i18n="tokens.enable"{% endif %}>{{ 'Disable' if t.enabled else 'Enable' }}</span>
+                            </button>
+                            <button onclick="deleteToken({{ t.id }}, '{{ t.name }}')" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors" data-i18n="tokens.delete">Delete</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if not tokens %}
+        <div class="p-12 text-center">
+            <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/></svg>
+            </div>
+            <p class="text-gray-400 dark:text-slate-500 text-sm" data-i18n="tokens.no_tokens">No tokens yet. Click "New Token" to create one.</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg mx-4 border border-gray-200/80 dark:border-slate-700/50">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-slate-700/50">
+            <h3 id="modal-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100" data-i18n="tokens.new_token">New Token</h3>
+        </div>
+        <div class="px-6 py-5 space-y-4">
+            <input type="hidden" id="edit-token-id">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" data-i18n="tokens.name">Name</label>
+                <input id="token-name" type="text" placeholder="e.g. dev-agent, prod-claude"
+                    class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" data-i18n="tokens.allowed_tools_label">Allowed Tools</label>
+                <div class="text-xs text-gray-500 dark:text-slate-400 mb-2" data-i18n="tokens.leave_unchecked">Leave unchecked = all tools allowed</div>
+                <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-600 rounded-lg p-2 space-y-0.5" id="tools-checkboxes">
+                    {% for name in tool_names %}
+                    <label class="flex items-center gap-3 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 px-2.5 py-1.5 rounded-md transition-colors">
+                        <input type="checkbox" value="{{ name }}" class="tool-check rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500">
+                        <span class="font-medium text-gray-800 dark:text-slate-200 min-w-[100px]">{{ name }}</span>
+                        <span class="text-gray-400 dark:text-slate-500 text-xs truncate max-w-[240px]" title="{{ tool_info.get(name, '') }}">
+                            {{ tool_info.get(name, '')[:24] }}{{ '...' if tool_info.get(name, '')|length > 24 else '' }}
+                        </span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-end gap-3">
+            <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors" data-i18n="tokens.cancel">Cancel</button>
+            <button onclick="saveToken()" class="px-4 py-2 text-sm bg-slate-900 dark:bg-blue-600 text-white rounded-lg hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm font-medium" data-i18n="tokens.save">Save</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function headers() {
+    const h = { 'Content-Type': 'application/json' };
+    const t = localStorage.getItem('admin_token') || '';
+    if (t) h['X-Admin-Token'] = t;
+    return h;
+}
+
+async function adminLogin() {
+    const input = document.getElementById('admin-token-input');
+    const token = input.value.trim();
+    const errEl = document.getElementById('login-error');
+    errEl.classList.add('hidden');
+
+    if (!token) { errEl.textContent = 'Please enter a token'; errEl.classList.remove('hidden'); return; }
+
+    const resp = await fetch('/api/tokens/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        localStorage.setItem('admin_token', token);
+        window.location.reload();
+    } else {
+        errEl.textContent = data.message || 'Invalid token';
+        errEl.classList.remove('hidden');
+    }
+}
+
+function copyToken(token) {
+    navigator.clipboard.writeText(token).then(() => {
+        const btn = event.target;
+        const orig = btn.textContent;
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = orig, 1500);
+    });
+}
+
+function showCreateModal() {
+    document.getElementById('modal-title').textContent = currentLang === 'zh' ? '新建 Token' : 'New Token';
+    document.getElementById('modal-title').setAttribute('data-i18n', 'tokens.new_token');
+    document.getElementById('edit-token-id').value = '';
+    document.getElementById('token-name').value = '';
+    document.querySelectorAll('.tool-check').forEach(cb => cb.checked = false);
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+async function editToken(id) {
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (!row) return;
+
+    document.getElementById('modal-title').textContent = currentLang === 'zh' ? '编辑 Token' : 'Edit Token';
+    document.getElementById('modal-title').setAttribute('data-i18n', 'tokens.edit_token');
+    document.getElementById('edit-token-id').value = id;
+    document.getElementById('token-name').value = row.cells[0].textContent.trim();
+
+    const toolsCell = row.cells[3].textContent.trim();
+    const allTools = toolsCell.includes('All tools') || toolsCell.includes('全部工具');
+    document.querySelectorAll('.tool-check').forEach(cb => {
+        cb.checked = !allTools && toolsCell.includes(cb.value);
+    });
+
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.add('hidden');
+}
+
+async function saveToken() {
+    const id = document.getElementById('edit-token-id').value;
+    const name = document.getElementById('token-name').value.trim();
+    const checked = [...document.querySelectorAll('.tool-check:checked')].map(cb => cb.value);
+    const allowed_tools = checked.length > 0 ? checked : null;
+
+    if (!name) { alert(currentLang === 'zh' ? '名称不能为空' : 'Name is required'); return; }
+
+    if (id) {
+        await fetch(`/api/tokens/${id}`, {
+            method: 'PUT',
+            headers: headers(),
+            body: JSON.stringify({ name, allowed_tools }),
+        });
+    } else {
+        const resp = await fetch('/api/tokens', {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ name, allowed_tools }),
+        });
+        const data = await resp.json();
+        if (data.token) {
+            const msg = currentLang === 'zh'
+                ? `Token 已创建！\n\n${data.token}\n\n请立即复制，之后不会再次完整显示。`
+                : `Token created!\n\n${data.token}\n\nPlease copy it now, it won't be shown again in full.`;
+            alert(msg);
+        }
+    }
+    closeModal();
+    window.location.reload();
+}
+
+async function toggleToken(id, enabled) {
+    await fetch(`/api/tokens/${id}`, {
+        method: 'PUT',
+        headers: headers(),
+        body: JSON.stringify({ enabled }),
+    });
+    window.location.reload();
+}
+
+async function deleteToken(id, name) {
+    const msg = currentLang === 'zh' ? `确定删除 Token "${name}"？` : `Delete token "${name}"?`;
+    if (!confirm(msg)) return;
+    await fetch(`/api/tokens/${id}`, {
+        method: 'DELETE',
+        headers: headers(),
+    });
+    window.location.reload();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,45 @@
+# MCP Toolbox 配置文件
+# 所有选项均有默认值，此文件可选。
+
+server:
+  host: "127.0.0.1"
+  port: 8080
+
+mcp:
+  transport: stdio  # stdio（默认）或 http（挂载到 Web 服务器 /mcp 路径）
+
+database:
+  log_path: "mcp_toolbox.db"
+  retention_days: 7      # 日志保留天数（最少1天）
+
+# 工具加载配置
+tools:
+  # 工具目录，支持相对路径和绝对路径
+  # 开发环境: "./dev_tools"
+  # 运维环境: "/opt/mcp_toolbox/prod_tools"
+  dir: "tools"
+
+  # 显式指定工具模块列表（优先级最高，覆盖自动发现）
+  # modules:
+  #   - tools.my_tools
+  #   - tools.http_utils
+
+  # 是否自动发现工具目录下的所有 .py 文件
+  auto_discover: true
+
+  # 是否加载框架自带的示例工具（生产环境建议关闭）
+  load_examples: true
+
+# Admin Token（保护 Web UI 的 Token 管理页面）
+# 也可通过 --admin-token 或 MCP_TOOLBOX_ADMIN_TOKEN 环境变量设置
+# admin_token: "your-admin-token-here"
+
+# java:
+#   java_home: "/usr/lib/jvm/java-17"
+
+# 数据库命名连接（工具中用 connection="my_db" 引用）
+# 开发和生产环境配置不同连接，工具代码无需修改
+sql_connections:
+  # dev_db: "sqlite:///dev.db"
+  # prod_db: "postgresql://user:pass@prod-host:5432/mydb"
+  # analytics: "mysql://user:pass@analytics-host:3306/warehouse"

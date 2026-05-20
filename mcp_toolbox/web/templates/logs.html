@@ -1,0 +1,194 @@
+{% extends "base.html" %}
+{% block title %}Logs - MCP Toolbox{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-i18n="logs.title">Call Logs</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">View and filter tool invocation history</p>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white dark:bg-slate-800/80 rounded-xl shadow-sm border border-gray-200/80 dark:border-slate-700/50 p-5">
+        <div class="flex flex-wrap gap-4 items-center">
+            <div>
+                <label class="text-xs font-semibold text-gray-400 dark:text-slate-500 mr-2 uppercase tracking-wider" data-i18n="logs.tool">Tool:</label>
+                <select id="filter-tool" onchange="applyFilters()" class="border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all">
+                    <option value="" data-i18n="logs.all_tools">All Tools</option>
+                    {% for tool in tools %}
+                    <option value="{{ tool.name }}">{{ tool.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-400 dark:text-slate-500 mr-2 uppercase tracking-wider" data-i18n="logs.status">Status:</label>
+                <select id="filter-status" onchange="applyFilters()" class="border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all">
+                    <option value="" data-i18n="logs.all">All</option>
+                    <option value="success" data-i18n="logs.success">Success</option>
+                    <option value="error" data-i18n="logs.error">Error</option>
+                </select>
+            </div>
+            <div>
+                <label class="text-xs font-semibold text-gray-400 dark:text-slate-500 mr-2 uppercase tracking-wider" data-i18n="logs.error_type">Error Type:</label>
+                <select id="filter-category" onchange="applyFilters()" class="border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all">
+                    <option value="" data-i18n="logs.all">All</option>
+                    <option value="timeout">Timeout</option>
+                    <option value="connection">Connection</option>
+                    <option value="permission">Permission</option>
+                    <option value="not_found">Not Found</option>
+                    <option value="parameter">Parameter</option>
+                    <option value="execution">Execution</option>
+                    <option value="config">Config</option>
+                    <option value="unknown">Unknown</option>
+                </select>
+            </div>
+            <button onclick="loadLogs()" class="bg-slate-900 dark:bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm" data-i18n="logs.refresh">
+                Refresh
+            </button>
+        </div>
+    </div>
+
+    <!-- Log Table -->
+    <div class="bg-white dark:bg-slate-800/80 rounded-xl shadow-sm border border-gray-200/80 dark:border-slate-700/50 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100 dark:divide-slate-700/50">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.id">ID</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.time">Time</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.tool_col">Tool</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.type">Type</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.status_col">Status</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.error_type_col">Error Type</th>
+                        <th class="px-4 py-3.5 text-right text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.duration">Duration</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.input">Input</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="logs.output_error">Output/Error</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50 dark:divide-slate-700/30" id="logs-body">
+                    {% for log in logs %}
+                    <tr class="row-hover hover:bg-gray-50/50 dark:hover:bg-slate-700/30 cursor-pointer log-row"
+                        data-tool="{{ log.tool_name }}"
+                        data-status="{{ log.status }}"
+                        data-category="{{ log.error_category or '' }}"
+                        onclick="toggleLogDetail('detail-{{ log.id }}')">
+                        <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-400 dark:text-slate-500 font-mono">{{ log.id }}</td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{{ log.timestamp[:19] }}</td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-sm">
+                            <a href="/tools/{{ log.tool_name }}" class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors" onclick="event.stopPropagation()">
+                                {{ log.tool_name }}
+                            </a>
+                        </td>
+                        <td class="px-4 py-3.5 whitespace-nowrap">
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium text-white badge-{{ log.tool_type }}">
+                                {{ log.tool_type }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3.5 whitespace-nowrap">
+                            {% if log.status == 'success' %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" data-i18n="logs.success">Success</span>
+                            {% else %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300" data-i18n="logs.error">Error</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3.5 whitespace-nowrap">
+                            {% if log.error_category %}
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+                                {% if log.error_category == 'timeout' %}bg-yellow-50 dark:bg-yellow-500/15 text-yellow-700 dark:text-yellow-300
+                                {% elif log.error_category == 'connection' %}bg-orange-50 dark:bg-orange-500/15 text-orange-700 dark:text-orange-300
+                                {% elif log.error_category == 'permission' %}bg-purple-50 dark:bg-purple-500/15 text-purple-700 dark:text-purple-300
+                                {% elif log.error_category == 'not_found' %}bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300
+                                {% elif log.error_category == 'parameter' %}bg-pink-50 dark:bg-pink-500/15 text-pink-700 dark:text-pink-300
+                                {% elif log.error_category == 'execution' %}bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300
+                                {% elif log.error_category == 'config' %}bg-indigo-50 dark:bg-indigo-500/15 text-indigo-700 dark:text-indigo-300
+                                {% else %}bg-gray-100 dark:bg-slate-700 text-gray-700 dark:text-slate-300
+                                {% endif %}">
+                                {{ log.error_category }}
+                            </span>
+                            {% else %}
+                            <span class="text-gray-300 dark:text-slate-600">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-right text-sm text-gray-500 dark:text-slate-400 font-mono">{{ "%.1f"|format(log.duration_ms) }}ms</td>
+                        <td class="px-4 py-3.5 text-sm text-gray-500 dark:text-slate-400 max-w-[200px] truncate">{{ log.input_params | tojson }}</td>
+                        <td class="px-4 py-3.5 text-sm text-gray-500 dark:text-slate-400 max-w-[200px] truncate">
+                            {% if log.status == 'error' and log.error_message %}
+                                {{ log.error_message }}
+                            {% elif log.output %}
+                                {{ log.output | tojson }}
+                            {% endif %}
+                        </td>
+                    </tr>
+                    <tr id="detail-{{ log.id }}" class="hidden">
+                        <td colspan="9" class="px-4 py-4 bg-gray-50/50 dark:bg-slate-900/50">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-2" data-i18n="logs.input_params">Input Parameters</div>
+                                    <pre class="json-block text-xs">{{ log.input_params | tojson(indent=2) }}</pre>
+                                </div>
+                                <div>
+                                    <div class="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-2">
+                                        {% if log.status == 'error' %}<span data-i18n="logs.error_details">Error Details</span>{% else %}<span data-i18n="logs.output">Output</span>{% endif %}
+                                    </div>
+                                    {% if log.status == 'error' and log.error_category %}
+                                    <div class="mb-2">
+                                        <span class="text-xs font-semibold text-gray-400 dark:text-slate-500" data-i18n="logs.category">Category:</span>
+                                        <span class="text-xs ml-1 text-gray-600 dark:text-slate-300">{{ log.error_category }}</span>
+                                    </div>
+                                    {% endif %}
+                                    <pre class="json-block text-xs">{% if log.status == 'error' %}{{ log.error_message or '(no error message)' }}{% else %}{{ log.output | tojson(indent=2) if log.output else '(empty)' }}{% endif %}</pre>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if not logs %}
+        <div class="p-12 text-center">
+            <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </div>
+            <p class="text-gray-400 dark:text-slate-500 text-sm" data-i18n="logs.no_logs">No log entries found.</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleLogDetail(id) {
+    document.getElementById(id).classList.toggle('hidden');
+}
+
+function applyFilters() {
+    const toolFilter = document.getElementById('filter-tool').value;
+    const statusFilter = document.getElementById('filter-status').value;
+    const categoryFilter = document.getElementById('filter-category').value;
+
+    document.querySelectorAll('.log-row').forEach(row => {
+        const matchTool = !toolFilter || row.dataset.tool === toolFilter;
+        const matchStatus = !statusFilter || row.dataset.status === statusFilter;
+        const matchCategory = !categoryFilter || row.dataset.category === categoryFilter;
+        const visible = matchTool && matchStatus && matchCategory;
+        row.style.display = visible ? '' : 'none';
+        const detailId = row.getAttribute('onclick').match(/'([^']+)'/)[1];
+        if (!visible) {
+            document.getElementById(detailId).classList.add('hidden');
+        }
+    });
+}
+
+async function loadLogs() {
+    const tool = document.getElementById('filter-tool').value;
+    const status = document.getElementById('filter-status').value;
+    let url = '/api/logs?limit=200';
+    if (tool) url += `&tool_name=${encodeURIComponent(tool)}`;
+    if (status) url += `&status=${encodeURIComponent(status)}`;
+    const resp = await fetch(url);
+    window.location.reload();
+}
+</script>
+{% endblock %}

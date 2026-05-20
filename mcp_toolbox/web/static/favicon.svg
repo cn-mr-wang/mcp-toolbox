@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#3b82f6"/>
+      <stop offset="100%" stop-color="#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="bolt" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="url(#bg)"/>
+  <!-- Wrench socket head (hex) -->
+  <circle cx="23" cy="27" r="10" fill="none" stroke="white" stroke-width="3.5" stroke-linecap="round" opacity="0.95"/>
+  <!-- Hex opening -->
+  <path d="M20.5 22.5 L25.5 22.5 L27.5 26 L25.5 29.5 L20.5 29.5 L18.5 26 Z" fill="url(#bg)" stroke="white" stroke-width="1" opacity="0.6"/>
+  <!-- Wrench handle -->
+  <rect x="30" y="32" width="20" height="5.5" rx="2.75" fill="white" opacity="0.95" transform="rotate(-45 30 34.75)"/>
+  <!-- Bolt accent -->
+  <path d="M44 14 L40 26 L45 26 L41 38" stroke="url(#bolt)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+</svg>

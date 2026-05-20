@@ -1,0 +1,25 @@
+[project]
+name = "mcp-toolbox"
+version = "0.1.0"
+description = "Generic MCP toolbox framework - define tools by filling in business logic"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.2.0,<2",
+    "fastapi>=0.115.0,<1",
+    "uvicorn[standard]>=0.34.0,<1",
+    "jinja2>=3.1.0,<4",
+    "pydantic>=2.10.0,<3",
+    "pyyaml>=6.0.0,<7",
+]
+
+[project.optional-dependencies]
+postgres = ["psycopg2-binary>=2.9.0,<3"]
+mysql = ["pymysql>=1.1.0,<2"]
+all-db = ["psycopg2-binary>=2.9.0,<3", "pymysql>=1.1.0,<2"]
+
+[project.scripts]
+mcp-toolbox = "mcp_toolbox.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
