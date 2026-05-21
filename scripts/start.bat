@@ -36,10 +36,20 @@ REM Start service
 echo Starting MCP Toolbox...
 cd /d "%PROJECT_DIR%"
 
-REM Default: Web UI only (--no-mcp)
+REM Default behavior depends on transport in config.yaml
+REM   - stdio: --no-mcp (needs interactive stdin)
+REM   - http:  no extra flags (MCP endpoint mounted on web server)
 REM Pass custom args via: start.bat --no-web
 set ARGS=%*
-if "!ARGS!"=="" set ARGS=--no-mcp
+if "!ARGS!"=="" (
+    set TRANSPORT=stdio
+    for /f "tokens=2 delims=: " %%a in ('findstr /i "transport:" "%PROJECT_DIR%\config.yaml" 2^>nul') do set TRANSPORT=%%a
+    if /i "!TRANSPORT!"=="http" (
+        set ARGS=
+    ) else (
+        set ARGS=--no-mcp
+    )
+)
 
 start /b !PYTHON! -m mcp_toolbox !ARGS! > "%LOG_FILE%" 2>&1
 

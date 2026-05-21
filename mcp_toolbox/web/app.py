@@ -1,5 +1,6 @@
 """FastAPI application factory for the Web UI dashboard."""
 
+import contextlib
 from pathlib import Path
 
 from fastapi import FastAPI
@@ -9,18 +10,30 @@ from fastapi.templating import Jinja2Templates
 from mcp_toolbox.logging.store import CallLogStore
 
 
-def create_app(log_store: CallLogStore, admin_token: str = "", mcp_app=None) -> FastAPI:
+def create_app(log_store: CallLogStore, admin_token: str = "", mcp_server=None) -> FastAPI:
     """Create the FastAPI application.
 
     Args:
         log_store: Shared call log store instance
         admin_token: Admin token for managing tokens (empty = no auth required)
-        mcp_app: Optional MCP ASGI app to mount at /mcp (for HTTP transport)
+        mcp_server: Optional FastMCP server instance for HTTP transport
 
     Returns:
         Configured FastAPI app
     """
-    app = FastAPI(title="MCP Toolbox Dashboard", version="0.1.0")
+    mcp_app = None
+    if mcp_server is not None:
+        mcp_app = mcp_server.streamable_http_app()
+
+    @contextlib.asynccontextmanager
+    async def lifespan(app):
+        if mcp_server is not None:
+            async with mcp_server.session_manager.run():
+                yield
+        else:
+            yield
+
+    app = FastAPI(title="MCP Toolbox Dashboard", version="0.1.0", lifespan=lifespan)
 
     templates = Jinja2Templates(
         directory=str(Path(__file__).parent / "templates")
@@ -43,8 +56,8 @@ def create_app(log_store: CallLogStore, admin_token: str = "", mcp_app=None) -> 
     app.include_router(api_router, prefix="/api")
     app.include_router(page_router)
 
-    # Mount MCP HTTP transport at /mcp
+    # Mount MCP HTTP transport at / (internal route is /mcp)
     if mcp_app:
-        app.mount("/mcp", mcp_app)
+        app.mount("/", mcp_app)
 
     return app

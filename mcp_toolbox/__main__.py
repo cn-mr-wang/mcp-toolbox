@@ -4,6 +4,7 @@ import argparse
 import asyncio
 import importlib
 import importlib.metadata
+import importlib.util
 import os
 import re
 import subprocess
@@ -101,23 +102,53 @@ def _discover_tool_modules(tools_dir: str = "tools", load_examples: bool = False
         tools_path = Path.cwd() / tools_path
 
     if tools_path.exists():
-        # Add the parent of tools_path to sys.path so imports work
-        # For tools/ -> cwd, for /opt/tools/ -> /opt
-        parent = tools_path.parent
-        if str(parent) not in sys.path:
-            sys.path.insert(0, str(parent))
-
         # The package name is the directory name
         package_name = tools_path.name
 
-        for f in sorted(tools_path.rglob("*.py")):
-            if f.name == "__init__.py":
-                continue
-            # Convert file path to module name
-            rel = f.relative_to(tools_path)
-            parts = list(rel.with_suffix("").parts)
-            module_name = ".".join([package_name] + parts)
-            modules.append(module_name)
+        # Detect collision: if a package with the same name is already installed,
+        # importing tools as <package_name>.xxx will resolve to the installed
+        # package instead of the tools directory. In that case, add the tools
+        # directory itself to sys.path so modules are imported without the prefix.
+        collision = False
+        try:
+            spec = importlib.util.find_spec(package_name)
+            collision = spec is not None
+        except (ModuleNotFoundError, ValueError):
+            pass
+
+        if collision:
+            # Add tools_path itself to sys.path; subdirs become top-level packages
+            if str(tools_path) not in sys.path:
+                sys.path.insert(0, str(tools_path))
+            for f in sorted(tools_path.rglob("*.py")):
+                if f.name == "__init__.py":
+                    continue
+                rel = f.relative_to(tools_path)
+                parts = list(rel.with_suffix("").parts)
+                if len(parts) == 1:
+                    modules.append(parts[0])
+                else:
+                    # Nested: check if parent dir is a package (has __init__.py)
+                    parent_dir = f.parent
+                    if (parent_dir / "__init__.py").exists():
+                        modules.append(".".join(parts))
+                    else:
+                        print(f"Warning: Skipping '{f}': parent '{parent_dir.name}' "
+                              f"has no __init__.py")
+        else:
+            # Normal case: add parent so tools_path.name becomes the package
+            parent = tools_path.parent
+            if str(parent) not in sys.path:
+                sys.path.insert(0, str(parent))
+
+            for f in sorted(tools_path.rglob("*.py")):
+                if f.name == "__init__.py":
+                    continue
+                # Convert file path to module name
+                rel = f.relative_to(tools_path)
+                parts = list(rel.with_suffix("").parts)
+                module_name = ".".join([package_name] + parts)
+                modules.append(module_name)
     else:
         print(f"Warning: Tools directory '{tools_dir}' does not exist")
 
@@ -201,6 +232,11 @@ def main():
         print(f"No tools loaded. Put tool files in '{tools_dir}/' directory "
               "or use --modules to specify tool modules.")
 
+    # Clean up token permissions: remove tools that no longer exist
+    cleaned = log_store.cleanup_token_tools(registry.names())
+    if cleaned > 0:
+        print(f"Cleaned up {cleaned} token(s) with non-existent tools")
+
     # Resolve admin token: CLI > env > config > auto-generate
     admin_token = (
         args.admin_token
@@ -227,14 +263,26 @@ def main():
     if not args.no_mcp:
         from mcp_toolbox.core.token import get_mcp_token
         from mcp_toolbox.server.mcp_server import create_mcp_server
-        mcp_token = get_mcp_token(args.token or "")
-        if mcp_token:
+        mcp_token = get_mcp_token(args.token or "", config.get("mcp.token", ""))
+        if transport == "stdio" and mcp_token:
             token_info = log_store.get_token_by_value(mcp_token)
             if token_info and token_info.get("enabled"):
                 print(f"MCP server token: {mcp_token[:8]}... (tools filtered by permissions)")
             else:
                 print(f"Warning: MCP token is invalid or disabled")
-        mcp_server = create_mcp_server(log_store, token=mcp_token)
+        elif transport == "stdio" and not mcp_token:
+            print("Warning: No token configured. 0 tools will be available.")
+
+        # Build server URL for HTTP auth settings
+        server_url = ""
+        if transport == "http":
+            host = args.web_host or config.get("server.host")
+            port = args.web_port or config.get("server.port")
+            server_url = f"http://{host}:{port}"
+
+        mcp_server = create_mcp_server(
+            log_store, token=mcp_token, transport=transport, server_url=server_url,
+        )
 
     if transport == "http" and not args.no_mcp:
         # HTTP mode: mount MCP on the web server at /mcp
@@ -242,15 +290,11 @@ def main():
             print("Error: --transport http requires web server. Remove --no-web.")
             sys.exit(1)
 
-        mcp_http_app = mcp_server.streamable_http_app()
-
         from mcp_toolbox.web.app import create_app
-        web_app = create_app(log_store, admin_token=admin_token, mcp_app=mcp_http_app)
-        host = args.web_host or config.get("server.host")
-        port = args.web_port or config.get("server.port")
+        web_app = create_app(log_store, admin_token=admin_token, mcp_server=mcp_server)
 
-        print(f"MCP endpoint: http://{host}:{port}/mcp")
-        print(f"Web UI: http://{host}:{port}")
+        print(f"MCP endpoint: {server_url}/mcp")
+        print(f"Web UI: {server_url}")
         uvicorn.run(web_app, host=host, port=port, log_level="info")
 
     else:
@@ -274,7 +318,7 @@ def main():
             print("MCP server starting on stdio...")
             asyncio.run(mcp_server.run_stdio_async())
         elif not args.no_web:
-            print("Running in web-only mode. Press Ctrl+C to stop.")
+            print("Running in web-only mode. Use scripts/shutdown.sh to stop, or press Ctrl+C.")
             try:
                 while True:
                     threading.Event().wait(1)

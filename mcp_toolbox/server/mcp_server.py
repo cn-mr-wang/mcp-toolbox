@@ -8,7 +8,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from mcp_toolbox.core.registry import registry
-from mcp_toolbox.core.token import filter_tools_by_token
+from mcp_toolbox.core.token import DBTokenVerifier, filter_tools_by_token
 from mcp_toolbox.core.types import ToolEntry, ToolResult
 from mcp_toolbox.executors import executor_registry
 from mcp_toolbox.logging.middleware import LoggingMiddleware
@@ -100,7 +100,7 @@ def _create_dynamic_tool_func(entry: ToolEntry, middleware: LoggingMiddleware):
     return handler
 
 
-def create_mcp_server(log_store, token: str = "") -> FastMCP:
+def create_mcp_server(log_store, token: str = "", transport: str = "stdio", server_url: str = "") -> FastMCP:
     """Create and configure the FastMCP server.
 
     Reads registered tools from the registry, filters by token permissions,
@@ -108,25 +108,44 @@ def create_mcp_server(log_store, token: str = "") -> FastMCP:
 
     Args:
         log_store: Call log store instance
-        token: If set, only tools allowed by this token are registered
+        token: If set, only tools allowed by this token are registered (stdio mode)
+        transport: "stdio" or "http" - HTTP mode enables request-level token auth
+        server_url: Server base URL (e.g. "http://localhost:9000") for auth settings
     """
-    mcp = FastMCP(
-        "mcp-toolbox",
-        instructions="Generic MCP toolbox with Python, Shell, Java, and SQL tools.",
-    )
+    from mcp.server.auth.settings import AuthSettings
+
+    kwargs = {
+        "name": "mcp-toolbox",
+        "instructions": "Generic MCP toolbox with Python, Shell, Java, and SQL tools.",
+    }
+
+    # HTTP mode: enable Bearer token auth, register all tools
+    # (different clients have different tokens; per-request filtering is handled by TokenVerifier)
+    if transport == "http":
+        verifier = DBTokenVerifier(log_store)
+        kwargs["token_verifier"] = verifier
+        kwargs["auth"] = AuthSettings(
+            issuer_url=server_url or "http://127.0.0.1:8000",
+            resource_server_url=server_url or "http://127.0.0.1:8000",
+        )
+
+    mcp = FastMCP(**kwargs)
     middleware = LoggingMiddleware(log_store)
 
     # Get all registered entries
     entries = registry.get_all()
 
-    # Filter by token if provided
-    if token:
+    # stdio mode: filter tools by startup token
+    if transport == "stdio" and token:
         token_info = log_store.get_token_by_value(token)
         allowed = filter_tools_by_token(registry.names(), token_info)
         if not allowed:
             print(f"Warning: Token is invalid, disabled, or has no allowed tools. "
                   f"0 tools will be available.")
         entries = [e for e in entries if e.name in allowed]
+    elif transport == "stdio" and not token:
+        entries = []
+        print("Warning: No token configured. 0 tools will be available.")
 
     for entry in entries:
         handler = _create_dynamic_tool_func(entry, middleware)

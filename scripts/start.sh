@@ -43,10 +43,20 @@ echo "Starting MCP Toolbox..."
 cd "$PROJECT_DIR"
 
 # Pass through any extra args
-# Default: Web UI only (--no-mcp), since MCP stdio mode needs interactive stdin
+# Default behavior depends on transport:
+#   - stdio: --no-mcp (needs interactive stdin, can't run in background)
+#   - http:  no extra flags (MCP endpoint mounted on web server, no stdin needed)
 # Use --no-web for MCP-only mode (must run interactively, not via nohup)
-# Use no args for both Web + MCP (must run interactively)
-ARGS="${*:---no-mcp}"
+if [ $# -gt 0 ]; then
+    ARGS="$*"
+else
+    TRANSPORT=$(grep -E '^\s*transport:' "$PROJECT_DIR/config.yaml" 2>/dev/null | sed 's/#.*//' | sed 's/.*:\s*//' | tr -d ' "'"'"'')
+    if [ "$TRANSPORT" = "http" ]; then
+        ARGS=""
+    else
+        ARGS="--no-mcp"
+    fi
+fi
 
 PYTHONUNBUFFERED=1 nohup "$PYTHON" -m mcp_toolbox $ARGS > "$LOG_FILE" 2>&1 &
 PID=$!

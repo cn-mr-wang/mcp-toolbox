@@ -316,3 +316,44 @@ class CallLogStore:
                 pass
         d["enabled"] = bool(d.get("enabled", 1))
         return d
+
+    def cleanup_token_tools(self, valid_tools: list) -> int:
+        """Validate and normalize all tokens' allowed_tools.
+
+        - null tokens (legacy "all tools") are expanded to explicit tool lists
+        - Tokens with non-existent tools have those tools removed
+
+        Args:
+            valid_tools: List of currently loaded tool names
+
+        Returns:
+            Number of tokens that were cleaned up.
+        """
+        valid_set = set(valid_tools)
+        tools_json = json.dumps(valid_tools)
+        cleaned = 0
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT id, allowed_tools FROM tokens").fetchall()
+            for row in rows:
+                raw = row["allowed_tools"]
+                if raw is None:
+                    # Legacy "all tools" token → expand to explicit list
+                    conn.execute(
+                        "UPDATE tokens SET allowed_tools = ? WHERE id = ?",
+                        (tools_json, row["id"]),
+                    )
+                    cleaned += 1
+                else:
+                    try:
+                        tools = json.loads(raw)
+                    except (json.JSONDecodeError, TypeError):
+                        continue
+                    filtered = [t for t in tools if t in valid_set]
+                    if len(filtered) != len(tools):
+                        conn.execute(
+                            "UPDATE tokens SET allowed_tools = ? WHERE id = ?",
+                            (json.dumps(filtered), row["id"]),
+                        )
+                        cleaned += 1
+        return cleaned

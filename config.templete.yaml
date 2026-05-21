@@ -7,6 +7,7 @@ server:
 
 mcp:
   transport: stdio  # stdio（默认）或 http（挂载到 Web 服务器 /mcp 路径）
+  # token: "your-mcp-token"  # MCP 工具 Token，HTTP 模式下用于请求级认证
 
 database:
   log_path: "mcp_toolbox.db"

@@ -128,12 +128,17 @@
                     class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" data-i18n="tokens.allowed_tools_label">Allowed Tools</label>
-                <div class="text-xs text-gray-500 dark:text-slate-400 mb-2" data-i18n="tokens.leave_unchecked">Leave unchecked = all tools allowed</div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-sm font-medium text-gray-700 dark:text-slate-300" data-i18n="tokens.allowed_tools_label">Allowed Tools</label>
+                    <button type="button" onclick="toggleSelectAll()" id="select-all-btn"
+                        class="text-xs text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 transition-colors font-medium"
+                        data-i18n="tokens.select_all">Select All</button>
+                </div>
+                <div class="text-xs text-gray-500 dark:text-slate-400 mb-2" data-i18n="tokens.leave_unchecked">勾选需要允许使用的工具，不勾选则不允许使用任何工具</div>
                 <div class="max-h-64 overflow-y-auto border border-gray-200 dark:border-slate-600 rounded-lg p-2 space-y-0.5" id="tools-checkboxes">
                     {% for name in tool_names %}
                     <label class="flex items-center gap-3 text-sm cursor-pointer hover:bg-gray-50 dark:hover:bg-slate-700/50 px-2.5 py-1.5 rounded-md transition-colors">
-                        <input type="checkbox" value="{{ name }}" class="tool-check rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500">
+                        <input type="checkbox" value="{{ name }}" class="tool-check rounded border-gray-300 dark:border-slate-600 text-blue-600 focus:ring-blue-500" onchange="updateSelectAllBtn()">
                         <span class="font-medium text-gray-800 dark:text-slate-200 min-w-[100px]">{{ name }}</span>
                         <span class="text-gray-400 dark:text-slate-500 text-xs truncate max-w-[240px]" title="{{ tool_info.get(name, '') }}">
                             {{ tool_info.get(name, '')[:24] }}{{ '...' if tool_info.get(name, '')|length > 24 else '' }}
@@ -146,6 +151,33 @@
         <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-end gap-3">
             <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors" data-i18n="tokens.cancel">Cancel</button>
             <button onclick="saveToken()" class="px-4 py-2 text-sm bg-slate-900 dark:bg-blue-600 text-white rounded-lg hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm font-medium" data-i18n="tokens.save">Save</button>
+        </div>
+    </div>
+</div>
+
+<!-- Token Created Modal -->
+<div id="token-created-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-gray-200/80 dark:border-slate-700/50">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-slate-700/50">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Token 创建成功</h3>
+        </div>
+        <div class="px-6 py-5 space-y-4">
+            <div class="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 rounded-lg px-3 py-2">
+                请立即复制 Token，关闭后不会再次完整显示。
+            </div>
+            <div class="flex items-center gap-2">
+                <code id="created-token-value" class="flex-1 bg-gray-100 dark:bg-slate-700 px-3 py-2.5 rounded-lg text-sm font-mono text-gray-800 dark:text-slate-200 break-all select-all"></code>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-end gap-3">
+            <button onclick="copyCreatedToken()" id="copy-token-btn"
+                class="px-4 py-2 text-sm bg-slate-900 dark:bg-blue-600 text-white rounded-lg hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm font-medium">
+                复制 Token
+            </button>
+            <button onclick="closeTokenCreatedModal()"
+                class="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors">
+                关闭
+            </button>
         </div>
     </div>
 </div>
@@ -198,6 +230,7 @@ function showCreateModal() {
     document.getElementById('edit-token-id').value = '';
     document.getElementById('token-name').value = '';
     document.querySelectorAll('.tool-check').forEach(cb => cb.checked = false);
+    updateSelectAllBtn();
     document.getElementById('modal').classList.remove('hidden');
 }
 
@@ -215,6 +248,7 @@ async function editToken(id) {
     document.querySelectorAll('.tool-check').forEach(cb => {
         cb.checked = !allTools && toolsCell.includes(cb.value);
     });
+    updateSelectAllBtn();
 
     document.getElementById('modal').classList.remove('hidden');
 }
@@ -223,11 +257,29 @@ function closeModal() {
     document.getElementById('modal').classList.add('hidden');
 }
 
+function toggleSelectAll() {
+    const checkboxes = document.querySelectorAll('.tool-check');
+    const allChecked = [...checkboxes].every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateSelectAllBtn();
+}
+
+function updateSelectAllBtn() {
+    const checkboxes = document.querySelectorAll('.tool-check');
+    const allChecked = checkboxes.length > 0 && [...checkboxes].every(cb => cb.checked);
+    const btn = document.getElementById('select-all-btn');
+    if (allChecked) {
+        btn.textContent = currentLang === 'zh' ? '取消全选' : 'Deselect All';
+    } else {
+        btn.textContent = currentLang === 'zh' ? '全选' : 'Select All';
+    }
+}
+
 async function saveToken() {
     const id = document.getElementById('edit-token-id').value;
     const name = document.getElementById('token-name').value.trim();
     const checked = [...document.querySelectorAll('.tool-check:checked')].map(cb => cb.value);
-    const allowed_tools = checked.length > 0 ? checked : null;
+    const allowed_tools = checked.length > 0 ? checked : [];
 
     if (!name) { alert(currentLang === 'zh' ? '名称不能为空' : 'Name is required'); return; }
 
@@ -237,6 +289,8 @@ async function saveToken() {
             headers: headers(),
             body: JSON.stringify({ name, allowed_tools }),
         });
+        closeModal();
+        window.location.reload();
     } else {
         const resp = await fetch('/api/tokens', {
             method: 'POST',
@@ -244,14 +298,30 @@ async function saveToken() {
             body: JSON.stringify({ name, allowed_tools }),
         });
         const data = await resp.json();
+        closeModal();
         if (data.token) {
-            const msg = currentLang === 'zh'
-                ? `Token 已创建！\n\n${data.token}\n\n请立即复制，之后不会再次完整显示。`
-                : `Token created!\n\n${data.token}\n\nPlease copy it now, it won't be shown again in full.`;
-            alert(msg);
+            document.getElementById('created-token-value').textContent = data.token;
+            document.getElementById('copy-token-btn').textContent = currentLang === 'zh' ? '复制 Token' : 'Copy Token';
+            document.getElementById('token-created-modal').classList.remove('hidden');
+        } else {
+            window.location.reload();
         }
     }
-    closeModal();
+}
+
+function copyCreatedToken() {
+    const token = document.getElementById('created-token-value').textContent;
+    navigator.clipboard.writeText(token).then(() => {
+        const btn = document.getElementById('copy-token-btn');
+        btn.textContent = currentLang === 'zh' ? '已复制' : 'Copied';
+        setTimeout(() => {
+            btn.textContent = currentLang === 'zh' ? '复制 Token' : 'Copy Token';
+        }, 1500);
+    });
+}
+
+function closeTokenCreatedModal() {
+    document.getElementById('token-created-modal').classList.add('hidden');
     window.location.reload();
 }
 

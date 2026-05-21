@@ -9,7 +9,7 @@
 - **多语言工具** — Python、Shell、Java、SQL 四种工具类型，一行装饰器注册
 - **Web 仪表盘** — 内置 FastAPI 管理界面，查看工具列表、调用日志、在线测试
 - **透明日志** — 每次调用自动记录入参、出参、耗时、状态、错误分类
-- **访问控制** — Token 权限管理，为不同 MCP 客户端分配可用工具范围
+- **访问控制** — Token 权限管理，为不同 MCP 客户端分配可用工具范围，启动时自动校验工具有效性
 - **MCP 标准协议** — 基于 FastMCP，可接入 Claude Code 等任意 MCP 客户端
 - **统一异常处理** — 错误自动分类（超时/连接/权限/参数等），友好提示
 - **外部文件加载** — SQL 和 Shell 工具支持从外部文件加载命令/查询
@@ -259,7 +259,24 @@ sql_connections:
 1. Web UI `/access` 页面创建（需 Admin Token 登录）
 2. 或通过 REST API 创建
 
+Web UI 支持全选/取消全选工具。不勾选任何工具 = 该 Token 不允许使用任何工具，勾选全部 = 允许使用全部工具。
+
+### 工具校验
+
+服务启动时会自动校验所有 Token 的 `allowed_tools`：
+- 移除已不存在的工具
+- 旧版本中"全部工具"（`null`）的 Token 会展开为当前所有工具的显式列表
+
+校验结果会在控制台输出：
+
+```
+Loaded 5 tools: tool_a, tool_b, tool_c, tool_d, tool_e
+Cleaned up 2 token(s) with non-existent tools
+```
+
 ### 使用 Token
+
+**stdio 模式**：Token 在启动时传入，用于过滤可用工具。无 Token 则不注册任何工具。
 
 ```json
 {
@@ -287,6 +304,24 @@ sql_connections:
   }
 }
 ```
+
+**HTTP 模式**：服务端注册全部工具，每个请求通过 `Authorization: Bearer <token>` 头携带 Token，服务端按 Token 的 `allowed_tools` 动态过滤。无需在启动时传入 Token。
+
+```json
+{
+  "mcpServers": {
+    "mcp-toolbox": {
+      "type": "http",
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
+    }
+  }
+}
+```
+
+> **安全提示**：stdio 模式下未配置 Token 时不暴露任何工具。HTTP 模式下服务端注册全部工具，但每个请求必须携带有效的 Bearer Token，否则返回 401。
 
 ### Admin Token
 
@@ -323,23 +358,32 @@ admin_token: "your-admin-token"
 启动时使用 `--transport http`，MCP 端点挂载到 Web 服务器的 `/mcp` 路径：
 
 ```bash
-python -m mcp_toolbox --transport http
+# 带 Token 认证（推荐）
+python -m mcp_toolbox --transport http --token "your-token"
+
+# 或通过 config.yaml 配置
+# mcp:
+#   transport: http
+#   token: "your-token"
 ```
 
-客户端配置：
+客户端配置（需携带 Bearer Token）：
 
 ```json
 {
   "mcpServers": {
     "mcp-toolbox": {
       "type": "http",
-      "url": "http://127.0.0.1:8080/mcp"
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
     }
   }
 }
 ```
 
-HTTP 模式下 Web 仪表盘和 MCP 端点共用同一端口，适合需要远程访问或多客户端共享的场景。
+HTTP 模式下 Web 仪表盘和 MCP 端点共用同一端口，适合需要远程访问或多客户端共享的场景。Token 通过 FastMCP 内置的 Bearer 认证机制在每个请求上验证，未携带或 Token 无效将返回 401。
 
 ## 命令行参数
 
@@ -373,6 +417,7 @@ server:
 
 mcp:
   transport: stdio
+  # token: "your-mcp-token"  # HTTP 模式下用于请求级认证
 
 database:
   log_path: "mcp_toolbox.db"
@@ -455,7 +500,7 @@ mcp_toolbox/
 - **Multi-language tools** — Python, Shell, Java, SQL with decorator-based registration
 - **Web dashboard** — Built-in FastAPI UI with tool list, call logs, and online testing
 - **Transparent logging** — Auto-records params, output, duration, status, error category
-- **Access control** — Token-based permissions, assign allowed tools per MCP client
+- **Access control** — Token-based permissions, assign allowed tools per MCP client, auto-validates on startup
 - **MCP protocol** — Built on FastMCP, works with Claude Code and any MCP client
 - **Unified error handling** — Auto-classifies errors (timeout/connection/permission/etc.)
 - **External file loading** — SQL and Shell tools support loading from external files
@@ -514,16 +559,40 @@ Missing dependencies are auto-installed on startup. Already installed packages a
 
 **HTTP mode** — start with `--transport http`, MCP endpoint at `/mcp`:
 
+```bash
+# With token authentication (recommended)
+python -m mcp_toolbox --transport http --token "your-token"
+```
+
+Client config (must include Bearer token):
+
 ```json
 {
   "mcpServers": {
     "mcp-toolbox": {
       "type": "http",
-      "url": "http://127.0.0.1:8080/mcp"
+      "url": "http://127.0.0.1:8080/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token"
+      }
     }
   }
 }
 ```
+
+In HTTP mode, the server registers all tools and verifies the Bearer token on every request. Requests without a valid token receive 401. Tools are filtered per-request based on the token's `allowed_tools`.
+
+### Access Control
+
+Each MCP client can be assigned an independent Token to control which tools it can access.
+
+**stdio mode**: Token is passed at startup (`--token` or `MCP_TOOLBOX_TOKEN`), filters available tools. No token = 0 tools.
+
+**HTTP mode**: Server registers all tools. Each request carries a Bearer token in the `Authorization` header; the server filters tools per-request based on the token's `allowed_tools`. No startup token needed.
+
+**Create tokens** via Web UI `/access` page (requires Admin Token login) or REST API. The UI supports select all / deselect all for quick tool selection. No tools selected = no tools allowed; all selected = all tools allowed.
+
+**Tool validation**: On startup, the server automatically validates all tokens' `allowed_tools`: removes non-existent tools and expands legacy "all tools" (`null`) tokens to explicit tool lists.
 
 ### License
 
