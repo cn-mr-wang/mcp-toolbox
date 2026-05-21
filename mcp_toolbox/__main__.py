@@ -3,7 +3,10 @@
 import argparse
 import asyncio
 import importlib
+import importlib.metadata
 import os
+import re
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -24,6 +27,50 @@ def _load_tool_modules(modules: list[str]):
             print(f"Warning: Could not import '{mod_name}': {e}")
         except Exception as e:
             print(f"Warning: Error loading '{mod_name}': {e}")
+
+
+def _install_tool_deps(tools_dir: str) -> None:
+    """Auto-install dependencies from tools/requirements.txt if missing.
+
+    Checks each package in requirements.txt against installed packages.
+    If any are missing, runs pip install -r to install all.
+    """
+    tools_path = Path(tools_dir)
+    if not tools_path.is_absolute():
+        tools_path = Path.cwd() / tools_path
+
+    req_file = tools_path / "requirements.txt"
+    if not req_file.exists():
+        return
+
+    # Parse package names from requirements.txt (skip comments, blanks, options)
+    missing = []
+    for line in req_file.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or line.startswith("-"):
+            continue
+        # Extract package name: "pandas>=2.0" -> "pandas", "package[extra]" -> "package"
+        match = re.match(r"^([A-Za-z0-9_-]+)", line)
+        if not match:
+            continue
+        pkg_name = match.group(1)
+        try:
+            importlib.metadata.distribution(pkg_name)
+        except importlib.metadata.PackageNotFoundError:
+            missing.append(pkg_name)
+
+    if not missing:
+        return
+
+    print(f"Installing {len(missing)} missing tool dependencies: {', '.join(missing)}")
+    result = subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-r", str(req_file)],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        print(f"Warning: Failed to install some dependencies:\n{result.stderr}")
+    else:
+        print("Tool dependencies installed successfully.")
 
 
 def _discover_tool_modules(tools_dir: str = "tools", load_examples: bool = False) -> list[str]:
@@ -120,6 +167,9 @@ def main():
 
     # Determine tools directory
     tools_dir = args.tools_dir or config.get("tools.dir", "tools")
+
+    # Auto-install tool dependencies from tools/requirements.txt
+    _install_tool_deps(tools_dir)
 
     # Determine which tool modules to load
     # Priority: --modules > config > auto-discover

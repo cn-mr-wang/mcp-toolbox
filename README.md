@@ -67,6 +67,19 @@ def add(a: int, b: int) -> int:
     return a + b
 ```
 
+### 工具依赖
+
+如果你的工具需要第三方库，在 `tools/` 目录下创建 `requirements.txt`：
+
+```
+# tools/requirements.txt
+pandas>=2.0
+requests
+beautifulsoup4
+```
+
+服务启动时会自动检测并安装缺失的依赖，已安装的包会跳过。
+
 ### 启动服务
 
 ```bash
@@ -460,6 +473,19 @@ pip install -e .
 # Define tools in tools/*.py, then:
 python -m mcp_toolbox
 ```
+
+### Tool Dependencies
+
+If your tools need third-party libraries, create `requirements.txt` in the `tools/` directory:
+
+```
+# tools/requirements.txt
+pandas>=2.0
+requests
+beautifulsoup4
+```
+
+Missing dependencies are auto-installed on startup. Already installed packages are skipped.
 
 ### Tool Types
 
