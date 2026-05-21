@@ -161,13 +161,9 @@
         <div class="px-6 py-4 border-b border-gray-100 dark:border-slate-700/50">
             <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Token 创建成功</h3>
         </div>
-        <div class="px-6 py-5 space-y-4">
-            <div class="text-sm text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10 rounded-lg px-3 py-2">
-                请立即复制 Token，关闭后不会再次完整显示。
-            </div>
-            <div class="flex items-center gap-2">
-                <code id="created-token-value" class="flex-1 bg-gray-100 dark:bg-slate-700 px-3 py-2.5 rounded-lg text-sm font-mono text-gray-800 dark:text-slate-200 break-all select-all"></code>
-            </div>
+        <div class="px-6 py-5 space-y-3">
+            <code id="created-token-value" class="block bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 px-4 py-3 rounded-lg text-sm font-mono text-gray-800 dark:text-slate-200 break-all select-all"></code>
+            <p class="text-xs text-gray-400 dark:text-slate-500 text-center">关闭后不会再次完整显示，请及时复制</p>
         </div>
         <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-end gap-3">
             <button onclick="copyCreatedToken()" id="copy-token-btn"
@@ -335,13 +331,38 @@ async function toggleToken(id, enabled) {
 }
 
 async function deleteToken(id, name) {
-    const msg = currentLang === 'zh' ? `确定删除 Token "${name}"？` : `Delete token "${name}"?`;
-    if (!confirm(msg)) return;
-    await fetch(`/api/tokens/${id}`, {
-        method: 'DELETE',
-        headers: headers(),
+    const msg = currentLang === 'zh' ? `确定删除 Token「${name}」？` : `Delete token "${name}"?`;
+    showConfirmModal(msg, async () => {
+        await fetch(`/api/tokens/${id}`, {
+            method: 'DELETE',
+            headers: headers(),
+        });
+        window.location.reload();
     });
-    window.location.reload();
+}
+
+function showConfirmModal(message, onConfirm) {
+    document.getElementById('confirm-message').textContent = message;
+    const btn = document.getElementById('confirm-ok-btn');
+    btn.onclick = () => { closeConfirmModal(); onConfirm(); };
+    document.getElementById('confirm-modal').classList.remove('hidden');
+}
+
+function closeConfirmModal() {
+    document.getElementById('confirm-modal').classList.add('hidden');
 }
 </script>
+
+<!-- Confirm Modal -->
+<div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-gray-200/80 dark:border-slate-700/50">
+        <div class="px-6 py-5">
+            <p id="confirm-message" class="text-sm text-gray-700 dark:text-slate-300 text-center"></p>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-end gap-3">
+            <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors">取消</button>
+            <button id="confirm-ok-btn" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm font-medium">确定</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
