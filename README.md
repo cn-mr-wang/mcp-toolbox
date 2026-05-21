@@ -26,6 +26,7 @@ cd mcp-toolbox
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
+cp config.templete.yaml config.yaml   # 复制配置模板，按需修改
 ```
 
 数据库扩展（可选）：
@@ -514,6 +515,7 @@ git clone https://github.com/cn-mr-wang/mcp-toolbox.git
 cd mcp-toolbox
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
+cp config.templete.yaml config.yaml   # Copy config template, edit as needed
 
 # Define tools in tools/*.py, then:
 python -m mcp_toolbox
