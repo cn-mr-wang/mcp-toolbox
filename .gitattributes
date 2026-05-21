@@ -1,0 +1,6 @@
+*.js linguist-language=Python
+*.html linguist-language=Python
+*.css linguist-language=Python
+node_modules/** linguist-vendored
+dist/** linguist-vendored
+*.min.js linguist-vendored
