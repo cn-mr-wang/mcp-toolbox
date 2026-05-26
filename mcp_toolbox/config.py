@@ -1,5 +1,6 @@
 """Configuration loader with defaults."""
 
+import copy
 from pathlib import Path
 from typing import Any
 
@@ -8,9 +9,9 @@ import yaml
 DEFAULTS = {
     "server": {"host": "127.0.0.1", "port": 8080},
     "mcp": {"transport": "stdio"},
-    "database": {"log_path": "mcp_toolbox.db", "retention_days": 7},
+    "database": {"type": "sqlite", "log_path": "mcp_toolbox.db", "retention_days": 7,
+                 "host": "localhost", "port": 3306, "user": "root", "password": "", "database": "mcp_toolbox"},
     "java": {"java_home": None},
-    "sql_connections": {},
     "tools": {
         "dir": "tools",         # 工具目录（相对路径或绝对路径）
         "modules": [],          # 显式指定工具模块列表（优先级最高）
@@ -24,7 +25,7 @@ class Config:
     """YAML-based configuration with sensible defaults."""
 
     def __init__(self, config_path: str = None):
-        self._data = DEFAULTS.copy()
+        self._data = copy.deepcopy(DEFAULTS)
         if config_path and Path(config_path).exists():
             with open(config_path) as f:
                 user_cfg = yaml.safe_load(f) or {}

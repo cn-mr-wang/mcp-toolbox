@@ -1,0 +1,280 @@
+{% extends "base.html" %}
+{% block title %}Configs - MCP Toolbox{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-i18n="configs.title">自定义配置</h1>
+            <p class="mt-1 text-sm text-gray-500 dark:text-slate-400" data-i18n="configs.subtitle">管理工具可读取的 YAML 配置项</p>
+        </div>
+        {% if not admin_required or authenticated %}
+        <button onclick="showCreateModal()" class="bg-slate-900 dark:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm" data-i18n="configs.new_config">
+            + 新建配置
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Admin Login -->
+    {% if admin_required and not authenticated %}
+    <div id="login-area" class="bg-white dark:bg-slate-800/80 rounded-xl shadow-sm border border-gray-200/80 dark:border-slate-700/50 p-8 max-w-md mx-auto">
+        <div class="text-center mb-6">
+            <div class="w-12 h-12 mx-auto mb-4 rounded-xl bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-500 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+            </div>
+            <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100" data-i18n="configs.need_admin">需要 Admin Token</h3>
+            <p class="mt-1 text-xs text-gray-400 dark:text-slate-500" data-i18n="configs.need_admin_desc">输入 Admin Token 以管理配置</p>
+        </div>
+        <div class="space-y-3">
+            <input id="admin-token-input" type="password" data-i18n-placeholder="tokens.admin_token_placeholder" placeholder="Admin token"
+                class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 text-center focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all"
+                onkeydown="if(event.key==='Enter') adminLogin()">
+            <button onclick="adminLogin()" class="w-full bg-slate-900 dark:bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm" data-i18n="configs.login">
+                登录
+            </button>
+            <div id="login-error" class="text-red-500 dark:text-red-400 text-xs text-center hidden"></div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if not admin_required or authenticated %}
+    <!-- Config Table -->
+    <div class="bg-white dark:bg-slate-800/80 rounded-xl shadow-sm border border-gray-200/80 dark:border-slate-700/50 overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-100 dark:divide-slate-700/50">
+                <thead>
+                    <tr>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="configs.name">名称</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="configs.description">说明</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="configs.preview">内容预览</th>
+                        <th class="px-4 py-3.5 text-left text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="configs.updated_at">更新时间</th>
+                        <th class="px-4 py-3.5 text-right text-xs font-semibold text-gray-400 dark:text-slate-500 uppercase tracking-wider" data-i18n="configs.actions">操作</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-50 dark:divide-slate-700/30" id="configs-body">
+                    {% for c in configs %}
+                    <tr class="row-hover hover:bg-gray-50/50 dark:hover:bg-slate-700/30" data-id="{{ c.id }}">
+                        <td class="px-4 py-3.5 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-gray-100">
+                            <code class="bg-gray-100 dark:bg-slate-700 px-2 py-0.5 rounded-md text-xs font-mono">{{ c.name }}</code>
+                        </td>
+                        <td class="px-4 py-3.5 text-sm text-gray-500 dark:text-slate-400 max-w-xs truncate">{{ c.description or '' }}</td>
+                        <td class="px-4 py-3.5 text-sm text-gray-500 dark:text-slate-400 max-w-md">
+                            <pre class="text-xs font-mono truncate max-w-xs">{{ c.content[:80] }}{{ '...' if c.content|length > 80 else '' }}</pre>
+                        </td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-sm text-gray-500 dark:text-slate-400">{{ c.updated_at[:16] }}</td>
+                        <td class="px-4 py-3.5 whitespace-nowrap text-right text-sm">
+                            <button onclick="editConfig({{ c.id }})" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 mr-3 transition-colors" data-i18n="configs.edit">编辑</button>
+                            <button onclick="deleteConfig({{ c.id }}, '{{ c.name }}')" class="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-300 transition-colors" data-i18n="configs.delete">删除</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if not configs %}
+        <div class="p-12 text-center">
+            <div class="w-12 h-12 mx-auto mb-4 rounded-full bg-gray-100 dark:bg-slate-700 flex items-center justify-center">
+                <svg class="w-6 h-6 text-gray-400 dark:text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <p class="text-gray-400 dark:text-slate-500 text-sm" data-i18n="configs.no_configs">暂无自定义配置，点击"新建配置"创建。</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Usage hint -->
+    <div class="bg-gray-50 dark:bg-slate-800/50 rounded-xl border border-gray-200/80 dark:border-slate-700/50 px-6 py-4">
+        <h3 class="text-sm font-semibold text-gray-700 dark:text-slate-300 mb-2" data-i18n="configs.usage_title">在工具中使用</h3>
+        <pre class="text-xs font-mono text-gray-600 dark:text-slate-400 bg-white dark:bg-slate-700/50 rounded-lg p-3 overflow-x-auto"><code>from mcp_toolbox.core.config_store import get_config
+
+# 获取整个配置
+cfg = get_config("配置名称")
+
+# 获取嵌套值（点分路径）
+value = get_config("配置名称", "key.subkey")
+
+# 带默认值
+value = get_config("配置名称", "key.subkey", default="fallback")</code></pre>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Create/Edit Modal -->
+<div id="modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl mx-4 border border-gray-200/80 dark:border-slate-700/50">
+        <div class="px-6 py-4 border-b border-gray-100 dark:border-slate-700/50">
+            <h3 id="modal-title" class="text-lg font-semibold text-gray-900 dark:text-gray-100" data-i18n="configs.new_config">新建配置</h3>
+        </div>
+        <div class="px-6 py-5 space-y-4">
+            <input type="hidden" id="edit-config-id">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" data-i18n="configs.name_label">名称</label>
+                <input id="config-name" type="text" data-i18n-placeholder="configs.name_placeholder" placeholder="如 email_server、api_keys"
+                    class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all font-mono">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" data-i18n="configs.desc_label">说明</label>
+                <input id="config-description" type="text" data-i18n-placeholder="configs.desc_placeholder" placeholder="配置用途说明（可选）"
+                    class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5" data-i18n="configs.content_label">YAML 内容</label>
+                <textarea id="config-content" rows="12" data-i18n-placeholder="configs.content_placeholder" placeholder="smtp:
+  host: smtp.example.com
+  port: 587
+  username: user
+  password: pass"
+                    class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all font-mono resize-y"></textarea>
+                <div id="yaml-error" class="text-red-500 dark:text-red-400 text-xs mt-1 hidden"></div>
+            </div>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-end gap-3">
+            <button onclick="closeModal()" class="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors" data-i18n="configs.cancel">取消</button>
+            <button onclick="saveConfig()" class="px-4 py-2 text-sm bg-slate-900 dark:bg-blue-600 text-white rounded-lg hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm font-medium" data-i18n="configs.save">保存</button>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Modal -->
+<div id="confirm-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm mx-4 border border-gray-200/80 dark:border-slate-700/50">
+        <div class="px-6 py-5">
+            <p id="confirm-message" class="text-sm text-gray-700 dark:text-slate-300 text-center"></p>
+        </div>
+        <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-end gap-3">
+            <button onclick="closeConfirmModal()" class="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors" data-i18n="configs.cancel">取消</button>
+            <button id="confirm-ok-btn" class="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors shadow-sm font-medium" data-i18n="configs.confirm">确定</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function headers() {
+    const h = { 'Content-Type': 'application/json' };
+    const t = localStorage.getItem('admin_token') || '';
+    if (t) h['X-Admin-Token'] = t;
+    return h;
+}
+
+async function adminLogin() {
+    const input = document.getElementById('admin-token-input');
+    const token = input.value.trim();
+    const errEl = document.getElementById('login-error');
+    errEl.classList.add('hidden');
+    if (!token) { errEl.textContent = translate('tokens.enter_token_hint'); errEl.classList.remove('hidden'); return; }
+    const resp = await fetch('/api/tokens/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+    });
+    const data = await resp.json();
+    if (data.ok) {
+        localStorage.setItem('admin_token', token);
+        window.location.reload();
+    } else {
+        errEl.textContent = data.message || translate('tokens.invalid_token');
+        errEl.classList.remove('hidden');
+    }
+}
+
+function showCreateModal() {
+    document.getElementById('modal-title').textContent = translate('configs.new_config_title');
+    document.getElementById('modal-title').setAttribute('data-i18n', 'configs.new_config');
+    document.getElementById('edit-config-id').value = '';
+    document.getElementById('config-name').value = '';
+    document.getElementById('config-description').value = '';
+    document.getElementById('config-content').value = '';
+    document.getElementById('config-name').disabled = false;
+    document.getElementById('yaml-error').classList.add('hidden');
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+function editConfig(id) {
+    const row = document.querySelector(`tr[data-id="${id}"]`);
+    if (!row) return;
+    document.getElementById('modal-title').textContent = translate('configs.edit_config_title');
+    document.getElementById('modal-title').setAttribute('data-i18n', 'configs.edit_config');
+    document.getElementById('edit-config-id').value = id;
+    document.getElementById('config-name').value = row.cells[0].textContent.trim();
+    document.getElementById('config-name').disabled = true;
+    document.getElementById('config-description').value = row.cells[1].textContent.trim();
+    // Get full content from API
+    fetch(`/api/configs`, { headers: headers() })
+        .then(r => r.json())
+        .then(configs => {
+            const cfg = configs.find(c => c.id === id);
+            if (cfg) document.getElementById('config-content').value = cfg.content;
+        });
+    document.getElementById('yaml-error').classList.add('hidden');
+    document.getElementById('modal').classList.remove('hidden');
+}
+
+function closeModal() {
+    document.getElementById('modal').classList.add('hidden');
+}
+
+async function saveConfig() {
+    const id = document.getElementById('edit-config-id').value;
+    const name = document.getElementById('config-name').value.trim();
+    const description = document.getElementById('config-description').value.trim();
+    const content = document.getElementById('config-content').value;
+    const errEl = document.getElementById('yaml-error');
+
+    if (!name) { alert(translate('common.name_required')); return; }
+    if (!content.trim()) { alert(translate('common.content_required')); return; }
+
+    errEl.classList.add('hidden');
+
+    if (id) {
+        const resp = await fetch(`/api/configs/${id}`, {
+            method: 'PUT',
+            headers: headers(),
+            body: JSON.stringify({ name, description, content }),
+        });
+        if (!resp.ok) {
+            const data = await resp.json();
+            errEl.textContent = data.error || translate('common.save_failed');
+            errEl.classList.remove('hidden');
+            return;
+        }
+    } else {
+        const resp = await fetch('/api/configs', {
+            method: 'POST',
+            headers: headers(),
+            body: JSON.stringify({ name, description, content }),
+        });
+        if (!resp.ok) {
+            const data = await resp.json();
+            errEl.textContent = data.error || translate('common.create_failed');
+            errEl.classList.remove('hidden');
+            return;
+        }
+    }
+    closeModal();
+    window.location.reload();
+}
+
+async function deleteConfig(id, name) {
+    const msg = translate('configs.delete_confirm', {name});
+    showConfirmModal(msg, async () => {
+        await fetch(`/api/configs/${id}`, {
+            method: 'DELETE',
+            headers: headers(),
+        });
+        window.location.reload();
+    });
+}
+
+function showConfirmModal(message, onConfirm) {
+    document.getElementById('confirm-message').textContent = message;
+    const btn = document.getElementById('confirm-ok-btn');
+    btn.onclick = () => { closeConfirmModal(); onConfirm(); };
+    document.getElementById('confirm-modal').classList.remove('hidden');
+}
+
+function closeConfirmModal() {
+    document.getElementById('confirm-modal').classList.add('hidden');
+}
+</script>
+{% endblock %}

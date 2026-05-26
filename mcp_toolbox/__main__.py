@@ -176,25 +176,40 @@ def main():
     from mcp_toolbox.config import Config
     config = Config(args.config)
 
-    # Initialize log store
+    # Initialize databases
     db_path = args.db_path or config.get("database.log_path")
     retention_days = args.retention_days or config.get("database.retention_days", 7)
     retention_days = max(1, retention_days)
-    from mcp_toolbox.logging.store import CallLogStore
-    log_store = CallLogStore(db_path=db_path, retention_days=retention_days)
+
+    from mcp_toolbox.core.database import create_database
+    from mcp_toolbox.core.log_db import LogDB
+    from mcp_toolbox.core.token_db import TokenDB
+    from mcp_toolbox.core.config_db import ConfigDB
+    from mcp_toolbox.core.config_store import config_store
+
+    db_type = config.get("database.type", "sqlite")
+    if db_type == "mysql":
+        db = create_database("mysql",
+            host=config.get("database.host"),
+            port=config.get("database.port", 3306),
+            user=config.get("database.user"),
+            password=config.get("database.password"),
+            database=config.get("database.database"),
+        )
+    else:
+        db = create_database("sqlite", db_path=db_path)
+
+    log_db = LogDB(db=db, retention_days=retention_days)
+    token_db = TokenDB(db=db)
+    config_db = ConfigDB(db=db)
 
     # Clean up old logs on startup
-    deleted = log_store.cleanup_old_logs()
+    deleted = log_db.cleanup_old_logs()
     if deleted > 0:
         print(f"Cleaned up {deleted} log entries older than {retention_days} days")
 
-    # Register named database connections from config
-    sql_connections = config.get("sql_connections", {})
-    if sql_connections:
-        from mcp_toolbox.executors.sql_executor import connection_pool
-        for name, conn_str in sql_connections.items():
-            connection_pool.register(name, conn_str)
-        print(f"Registered {len(sql_connections)} database connections: {', '.join(sql_connections.keys())}")
+    # Load custom configs
+    config_store.load(config_db)
 
     # Determine tools directory
     tools_dir = args.tools_dir or config.get("tools.dir", "tools")
@@ -233,7 +248,7 @@ def main():
               "or use --modules to specify tool modules.")
 
     # Clean up token permissions: remove tools that no longer exist
-    cleaned = log_store.cleanup_token_tools(registry.names())
+    cleaned = token_db.cleanup_tools(registry.names())
     if cleaned > 0:
         print(f"Cleaned up {cleaned} token(s) with non-existent tools")
 
@@ -254,6 +269,7 @@ def main():
         token_file = Path("logs") / ".admin_token"
         token_file.parent.mkdir(exist_ok=True)
         token_file.write_text(admin_token)
+        token_file.chmod(0o600)
 
     # Resolve transport: CLI > config > default
     transport = args.transport or config.get("mcp.transport", "stdio")
@@ -265,7 +281,7 @@ def main():
         from mcp_toolbox.server.mcp_server import create_mcp_server
         mcp_token = get_mcp_token(args.token or "", config.get("mcp.token", ""))
         if transport == "stdio" and mcp_token:
-            token_info = log_store.get_token_by_value(mcp_token)
+            token_info = token_db.get_by_value(mcp_token)
             if token_info and token_info.get("enabled"):
                 print(f"MCP server token: {mcp_token[:8]}... (tools filtered by permissions)")
             else:
@@ -281,7 +297,7 @@ def main():
             server_url = f"http://{host}:{port}"
 
         mcp_server = create_mcp_server(
-            log_store, token=mcp_token, transport=transport, server_url=server_url,
+            log_db, token_db, token=mcp_token, transport=transport, server_url=server_url,
         )
 
     if transport == "http" and not args.no_mcp:
@@ -291,7 +307,7 @@ def main():
             sys.exit(1)
 
         from mcp_toolbox.web.app import create_app
-        web_app = create_app(log_store, admin_token=admin_token, mcp_server=mcp_server)
+        web_app = create_app(log_db, token_db, admin_token=admin_token, mcp_server=mcp_server, config_db=config_db)
 
         print(f"MCP endpoint: {server_url}/mcp")
         print(f"Web UI: {server_url}")
@@ -301,7 +317,7 @@ def main():
         # Stdio mode (default): web UI in background thread, MCP on stdin
         if not args.no_web:
             from mcp_toolbox.web.app import create_app
-            web_app = create_app(log_store, admin_token=admin_token)
+            web_app = create_app(log_db, token_db, admin_token=admin_token, config_db=config_db)
             host = args.web_host or config.get("server.host")
             port = args.web_port or config.get("server.port")
 

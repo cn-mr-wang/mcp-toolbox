@@ -289,7 +289,7 @@ async function runTest() {
     // UI: loading
     btn.disabled = true;
     btn.classList.add('opacity-60', 'cursor-not-allowed');
-    durationEl.textContent = currentLang === 'zh' ? '执行中...' : 'Running...';
+    durationEl.textContent = translate('common.running');
     resultArea.classList.add('hidden');
 
     try {
@@ -306,10 +306,10 @@ async function runTest() {
 
         if (data.success) {
             statusEl.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300';
-            statusEl.textContent = 'Success';
+            statusEl.textContent = translate('common.success');
         } else {
             statusEl.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300';
-            statusEl.textContent = 'Error';
+            statusEl.textContent = translate('common.error');
         }
 
         timeEl.textContent = data.duration_ms ? `${data.duration_ms}ms` : `${elapsed}ms`;
@@ -318,14 +318,14 @@ async function runTest() {
         if (data.success) {
             outputEl.textContent = typeof data.output === 'string' ? data.output : JSON.stringify(data.output, null, 2);
         } else {
-            const errText = data.error || 'Unknown error';
+            const errText = data.error || translate('common.unknown_error');
             const catText = data.error_category ? `[${data.error_category}] ` : '';
             outputEl.textContent = catText + errText;
         }
     } catch (e) {
         resultArea.classList.remove('hidden');
         statusEl.className = 'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-50 dark:bg-red-500/15 text-red-700 dark:text-red-300';
-        statusEl.textContent = 'Error';
+        statusEl.textContent = translate('common.error');
         timeEl.textContent = '';
         outputEl.textContent = e.message;
         durationEl.textContent = '';

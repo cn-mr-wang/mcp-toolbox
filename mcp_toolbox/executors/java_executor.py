@@ -8,6 +8,7 @@ import time
 from mcp_toolbox.core.errors import ErrorCategory, format_error
 from mcp_toolbox.core.types import ToolEntry, ToolResult
 from mcp_toolbox.executors.base import BaseExecutor
+from mcp_toolbox.executors.config_vars import extract_config_vars, resolve_config_vars
 
 
 def _build_java_args(params: dict, mode: str) -> list[str]:
@@ -62,11 +63,23 @@ class JavaExecutor(BaseExecutor):
         java_args = _build_java_args(params, args_mode)
         timeout = entry.metadata.get("timeout", 60)
 
-        if jar_path := entry.metadata.get("jar_path"):
+        # Inject config values as Java system properties (-Dconfig.xxx=yyy)
+        config_values = extract_config_vars(str(entry.metadata))
+        config_props = []
+        for key, value in config_values.items():
+            prop_name = f"config.{key}".replace(".", "_")
+            config_props.extend([f"-D{prop_name}={value}"])
+
+        # Resolve {config:...} in jar_path
+        jar_path = entry.metadata.get("jar_path", "")
+        jar_path = resolve_config_vars(jar_path) if jar_path else ""
+
+        if jar_path:
             # JAR mode
-            cmd = [java_bin, "-jar", jar_path] + java_args
+            cmd = [java_bin] + config_props + ["-jar", jar_path] + java_args
         elif source_path := entry.metadata.get("source_path"):
             # Source compilation mode
+            source_path = resolve_config_vars(source_path)
             main_class = entry.metadata.get("main_class", "")
             classpath = entry.metadata.get("classpath", ".")
 
@@ -98,7 +111,7 @@ class JavaExecutor(BaseExecutor):
                     duration_ms=0.0,
                 )
 
-            cmd = [java_bin, "-cp", classpath, main_class] + java_args
+            cmd = [java_bin] + config_props + ["-cp", classpath, main_class] + java_args
         else:
             return ToolResult(
                 success=False, output=None,

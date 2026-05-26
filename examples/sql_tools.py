@@ -1,4 +1,4 @@
-"""SQL 工具示例 —— 展示两种描述写法 + 命名连接 + 外部 SQL 文件。"""
+"""SQL 工具示例 —— 展示两种描述写法 + 配置变量连接 + 外部 SQL 文件。"""
 
 from mcp_toolbox.core.decorators import toolbox
 from mcp_toolbox.core.types import ToolType
@@ -9,7 +9,7 @@ from mcp_toolbox.core.types import ToolType
 @toolbox.tool(
     name="query_users",
     type=ToolType.SQL,
-    connection="my_db",  # 命名连接，由 config.yaml 的 sql_connections 配置
+    connection="{config:db.connection}",  # 从 /configs 页面配置项获取连接字符串
     query="SELECT * FROM users WHERE age > {min_age} LIMIT {limit}",
 )
 def query_users(min_age: int = 18, limit: int = 10) -> list:
@@ -27,7 +27,7 @@ def query_users(min_age: int = 18, limit: int = 10) -> list:
 @toolbox.tool(
     name="count_records",
     type=ToolType.SQL,
-    connection="my_db",
+    connection="{config:db.connection}",
     query="SELECT COUNT(*) as count FROM {table}",
     description="统计表中的记录数",
     param_descriptions={"table": "表名"},
@@ -39,7 +39,7 @@ def count_records(table: str) -> dict:
 @toolbox.tool(
     name="search_by_name",
     type=ToolType.SQL,
-    connection="my_db",
+    connection="{config:db.connection}",
     query="SELECT * FROM users WHERE name LIKE '%' || {name} || '%' LIMIT 20",
     description="按姓名模糊搜索用户",
     param_descriptions={"name": "要搜索的姓名关键字"},
@@ -53,7 +53,7 @@ def search_by_name(name: str) -> list:
 @toolbox.tool(
     name="user_report",
     type=ToolType.SQL,
-    connection="my_db",
+    connection="{config:db.connection}",
     query_file="sql/user_report.sql",  # 相对于本文件所在目录
     description="生成用户统计报表",
     param_descriptions={"start_date": "开始日期 YYYY-MM-DD", "end_date": "结束日期 YYYY-MM-DD"},

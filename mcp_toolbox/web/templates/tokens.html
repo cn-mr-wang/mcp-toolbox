@@ -6,7 +6,7 @@
     <div class="flex justify-between items-center">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-i18n="tokens.title">Token Management</h1>
-            <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">Manage tool access for MCP clients</p>
+            <p class="mt-1 text-sm text-gray-500 dark:text-slate-400" data-i18n="tokens.subtitle">Manage tool access for MCP clients</p>
         </div>
         {% if not admin_required or authenticated %}
         <button onclick="showCreateModal()" class="bg-slate-900 dark:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm" data-i18n="tokens.new">
@@ -26,7 +26,7 @@
             <p class="mt-1 text-xs text-gray-400 dark:text-slate-500" data-i18n="tokens.enter_token">Enter admin token to manage access</p>
         </div>
         <div class="space-y-3">
-            <input id="admin-token-input" type="password" placeholder="Admin token"
+            <input id="admin-token-input" type="password" data-i18n-placeholder="tokens.admin_token_placeholder" placeholder="Admin token"
                 class="w-full border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-2.5 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 text-center focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all"
                 onkeydown="if(event.key==='Enter') adminLogin()">
             <button onclick="adminLogin()" class="w-full bg-slate-900 dark:bg-blue-600 text-white px-4 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm" data-i18n="tokens.login">
@@ -159,19 +159,21 @@
 <div id="token-created-modal" class="fixed inset-0 bg-black/60 backdrop-blur-sm hidden flex items-center justify-center z-50">
     <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-md mx-4 border border-gray-200/80 dark:border-slate-700/50">
         <div class="px-6 py-4 border-b border-gray-100 dark:border-slate-700/50">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">Token 创建成功</h3>
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100" data-i18n="tokens.created_success">Token 创建成功</h3>
         </div>
         <div class="px-6 py-5 space-y-3">
             <code id="created-token-value" class="block bg-gray-50 dark:bg-slate-700/50 border border-gray-200 dark:border-slate-600 px-4 py-3 rounded-lg text-sm font-mono text-gray-800 dark:text-slate-200 break-all select-all"></code>
-            <p class="text-xs text-gray-400 dark:text-slate-500 text-center">关闭后不会再次完整显示，请及时复制</p>
+            <p class="text-xs text-gray-400 dark:text-slate-500 text-center" data-i18n="tokens.created_hint">关闭后不会再次完整显示，请及时复制</p>
         </div>
         <div class="px-6 py-4 border-t border-gray-100 dark:border-slate-700/50 flex justify-end gap-3">
             <button onclick="copyCreatedToken()" id="copy-token-btn"
-                class="px-4 py-2 text-sm bg-slate-900 dark:bg-blue-600 text-white rounded-lg hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm font-medium">
+                class="px-4 py-2 text-sm bg-slate-900 dark:bg-blue-600 text-white rounded-lg hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm font-medium"
+                data-i18n="tokens.copy_token">
                 复制 Token
             </button>
             <button onclick="closeTokenCreatedModal()"
-                class="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors">
+                class="px-4 py-2 text-sm text-gray-600 dark:text-slate-300 hover:text-gray-800 dark:hover:text-gray-100 transition-colors"
+                data-i18n="tokens.close">
                 关闭
             </button>
         </div>
@@ -194,7 +196,7 @@ async function adminLogin() {
     const errEl = document.getElementById('login-error');
     errEl.classList.add('hidden');
 
-    if (!token) { errEl.textContent = 'Please enter a token'; errEl.classList.remove('hidden'); return; }
+    if (!token) { errEl.textContent = translate('tokens.enter_token_hint'); errEl.classList.remove('hidden'); return; }
 
     const resp = await fetch('/api/tokens/auth', {
         method: 'POST',
@@ -206,7 +208,7 @@ async function adminLogin() {
         localStorage.setItem('admin_token', token);
         window.location.reload();
     } else {
-        errEl.textContent = data.message || 'Invalid token';
+        errEl.textContent = data.message || translate('tokens.invalid_token');
         errEl.classList.remove('hidden');
     }
 }
@@ -215,13 +217,13 @@ function copyToken(token) {
     navigator.clipboard.writeText(token).then(() => {
         const btn = event.target;
         const orig = btn.textContent;
-        btn.textContent = 'Copied!';
+        btn.textContent = translate('tokens.copied');
         setTimeout(() => btn.textContent = orig, 1500);
     });
 }
 
 function showCreateModal() {
-    document.getElementById('modal-title').textContent = currentLang === 'zh' ? '新建 Token' : 'New Token';
+    document.getElementById('modal-title').textContent = translate('tokens.new_token_title');
     document.getElementById('modal-title').setAttribute('data-i18n', 'tokens.new_token');
     document.getElementById('edit-token-id').value = '';
     document.getElementById('token-name').value = '';
@@ -234,7 +236,7 @@ async function editToken(id) {
     const row = document.querySelector(`tr[data-id="${id}"]`);
     if (!row) return;
 
-    document.getElementById('modal-title').textContent = currentLang === 'zh' ? '编辑 Token' : 'Edit Token';
+    document.getElementById('modal-title').textContent = translate('tokens.edit_token_title');
     document.getElementById('modal-title').setAttribute('data-i18n', 'tokens.edit_token');
     document.getElementById('edit-token-id').value = id;
     document.getElementById('token-name').value = row.cells[0].textContent.trim();
@@ -265,9 +267,9 @@ function updateSelectAllBtn() {
     const allChecked = checkboxes.length > 0 && [...checkboxes].every(cb => cb.checked);
     const btn = document.getElementById('select-all-btn');
     if (allChecked) {
-        btn.textContent = currentLang === 'zh' ? '取消全选' : 'Deselect All';
+        btn.textContent = translate('tokens.deselect_all');
     } else {
-        btn.textContent = currentLang === 'zh' ? '全选' : 'Select All';
+        btn.textContent = translate('tokens.select_all');
     }
 }
 
@@ -277,7 +279,7 @@ async function saveToken() {
     const checked = [...document.querySelectorAll('.tool-check:checked')].map(cb => cb.value);
     const allowed_tools = checked.length > 0 ? checked : [];
 
-    if (!name) { alert(currentLang === 'zh' ? '名称不能为空' : 'Name is required'); return; }
+    if (!name) { alert(translate('common.name_required')); return; }
 
     if (id) {
         await fetch(`/api/tokens/${id}`, {
@@ -297,7 +299,7 @@ async function saveToken() {
         closeModal();
         if (data.token) {
             document.getElementById('created-token-value').textContent = data.token;
-            document.getElementById('copy-token-btn').textContent = currentLang === 'zh' ? '复制 Token' : 'Copy Token';
+            document.getElementById('copy-token-btn').textContent = translate('tokens.copy_token');
             document.getElementById('token-created-modal').classList.remove('hidden');
         } else {
             window.location.reload();
@@ -309,9 +311,9 @@ function copyCreatedToken() {
     const token = document.getElementById('created-token-value').textContent;
     navigator.clipboard.writeText(token).then(() => {
         const btn = document.getElementById('copy-token-btn');
-        btn.textContent = currentLang === 'zh' ? '已复制' : 'Copied';
+        btn.textContent = translate('tokens.copied');
         setTimeout(() => {
-            btn.textContent = currentLang === 'zh' ? '复制 Token' : 'Copy Token';
+            btn.textContent = translate('tokens.copy_token');
         }, 1500);
     });
 }
@@ -331,7 +333,7 @@ async function toggleToken(id, enabled) {
 }
 
 async function deleteToken(id, name) {
-    const msg = currentLang === 'zh' ? `确定删除 Token「${name}」？` : `Delete token "${name}"?`;
+    const msg = translate('tokens.delete_confirm', {name});
     showConfirmModal(msg, async () => {
         await fetch(`/api/tokens/${id}`, {
             method: 'DELETE',

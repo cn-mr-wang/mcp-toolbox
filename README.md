@@ -26,7 +26,7 @@ cd mcp-toolbox
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-cp config.templete.yaml config.yaml   # 复制配置模板，按需修改
+cp config.template.yaml config.yaml   # 复制配置模板，按需修改
 ```
 
 数据库扩展（可选）：
@@ -226,11 +226,22 @@ def user_report(start_date: str, end_date: str) -> dict:
 
 #### 连接配置
 
+使用 `{config:xxx}` 从配置项获取连接字符串：
+
+```python
+@toolbox.tool(
+    name="query",
+    type=ToolType.SQL,
+    connection="{config:db.connection}",  # 从 /configs 页面读取
+    query="SELECT * FROM users",
+)
+```
+
+在 Web UI `/configs` 页面创建配置，例如名称 `db`：
+
 ```yaml
-# config.yaml
-sql_connections:
-  my_db: "sqlite:///dev.db"
-  # my_db: "postgresql://user:pass@host:5432/db"
+connection: "sqlite:///dev.db"
+# connection: "postgresql://user:pass@host:5432/db"
 ```
 
 ## Web 仪表盘
@@ -244,6 +255,7 @@ sql_connections:
 | 工具详情 | `/tools/{name}` | 参数 Schema、源码/配置、在线测试、近期调用 |
 | 调用日志 | `/logs` | 全量日志，按工具/状态/错误类型筛选 |
 | 访问控制 | `/access` | 创建/编辑/删除 Token，配置工具权限 |
+| 自定义配置 | `/configs` | 管理 YAML 配置项，工具代码可读取 |
 
 **特性**：
 - 中英文切换（右上角）
@@ -335,6 +347,74 @@ export MCP_TOOLBOX_ADMIN_TOKEN="your-admin-token"
 # 或 config.yaml
 admin_token: "your-admin-token"
 ```
+
+## 自定义配置
+
+可在 Web UI `/configs` 页面管理自定义配置项，配置以 YAML 格式存储在数据库中，支持热更新（无需重启）。
+
+### 创建配置
+
+1. Web UI `/configs` 页面点击"新建配置"（需 Admin Token 登录）
+2. 输入配置名称、YAML 内容和说明
+
+### 在工具中使用
+
+**Python 工具** — 通过 `get_config()` 函数：
+
+```python
+from mcp_toolbox.core.config_store import get_config
+
+@toolbox.tool(name="send_email", type=ToolType.PYTHON)
+def send_email(to: str, subject: str, body: str) -> str:
+    """发送邮件。"""
+    smtp_host = get_config("email_server", "smtp.host")
+    smtp_port = get_config("email_server", "smtp.port", default=587)
+    username = get_config("email_server", "smtp.username")
+    password = get_config("email_server", "smtp.password")
+    # ...
+```
+
+**Shell / SQL / Java 工具** — 使用 `{config:name.key}` 模板变量：
+
+```python
+# Shell 工具
+@toolbox.tool(
+    name="call_api",
+    type=ToolType.SHELL,
+    command='curl -H "Authorization: Bearer {config:api.token}" {config:api.base_url}/{endpoint}',
+)
+def call_api(endpoint: str) -> str:
+    pass
+
+# SQL 工具 — 连接字符串和查询中均可使用
+@toolbox.tool(
+    name="query_data",
+    type=ToolType.SQL,
+    connection="{config:db.connection}",
+    query="SELECT * FROM {config:db.schema}.users WHERE status = {status}",
+)
+def query_data(status: str = "active") -> list:
+    pass
+
+# Java 工具 — JAR 路径支持变量，配置自动注入为系统属性
+@toolbox.tool(
+    name="java_tool",
+    type=ToolType.JAVA,
+    jar_path="{config:java.tool_path}/tool.jar",
+)
+def java_tool(action: str) -> dict:
+    pass
+# Java 程序中通过 System.getProperty("config.api_base_url") 获取
+```
+
+**API 说明**：
+
+| 调用方式 | 说明 |
+|---------|------|
+| `get_config("name")` | 获取整个配置（返回 dict） |
+| `get_config("name", "key.sub")` | 获取嵌套值（点分路径） |
+| `get_config("name", "key", default="x")` | 带默认值 |
+| `{config:name.key}` | 模板变量（Shell/SQL/Java） |
 
 ## 接入 Claude Code
 
@@ -432,9 +512,6 @@ tools:
   load_examples: false
 
 # admin_token: "your-admin-token"
-
-# sql_connections:
-#   my_db: "sqlite:///data.db"
 ```
 
 ## 项目结构
@@ -595,6 +672,36 @@ Each MCP client can be assigned an independent Token to control which tools it c
 **Create tokens** via Web UI `/access` page (requires Admin Token login) or REST API. The UI supports select all / deselect all for quick tool selection. No tools selected = no tools allowed; all selected = all tools allowed.
 
 **Tool validation**: On startup, the server automatically validates all tokens' `allowed_tools`: removes non-existent tools and expands legacy "all tools" (`null`) tokens to explicit tool lists.
+
+### Custom Configs
+
+Manage custom YAML configs via Web UI `/configs` page (requires Admin Token). Configs are stored in the database and hot-reloaded on change — no restart needed.
+
+**Python tools** — use `get_config()` function:
+
+```python
+from mcp_toolbox.core.config_store import get_config
+
+host = get_config("email_server", "smtp.host")
+port = get_config("email_server", "smtp.port", default=587)
+```
+
+**Shell / SQL / Java tools** — use `{config:name.key}` template variables:
+
+```python
+# Shell
+@toolbox.tool(name="call_api", type=ToolType.SHELL,
+    command='curl {config:api.base_url}/{endpoint}')
+
+# SQL — connection and query both support config vars
+@toolbox.tool(name="query", type=ToolType.SQL,
+    connection="{config:db.connection}",
+    query="SELECT * FROM {config:db.schema}.users")
+
+# Java — jar_path supports vars, configs injected as system properties
+@toolbox.tool(name="java_tool", type=ToolType.JAVA,
+    jar_path="{config:java.tool_path}/tool.jar")
+```
 
 ### License
 

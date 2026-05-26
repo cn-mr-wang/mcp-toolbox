@@ -2,7 +2,7 @@
 
 from mcp_toolbox.core.types import ToolEntry, ToolResult
 from mcp_toolbox.executors.base import BaseExecutor
-from mcp_toolbox.logging.store import CallLogStore
+from mcp_toolbox.core.log_db import LogDB
 
 
 class LoggingMiddleware:
@@ -12,8 +12,8 @@ class LoggingMiddleware:
     every call's input, output, duration, and status to SQLite.
     """
 
-    def __init__(self, store: CallLogStore):
-        self.store = store
+    def __init__(self, log_db: LogDB):
+        self.log_db = log_db
 
     def wrap_call(self, entry: ToolEntry, params: dict, executor: BaseExecutor) -> ToolResult:
         """Execute a tool and log the call.
@@ -28,7 +28,7 @@ class LoggingMiddleware:
         """
         result = executor.execute(entry, params)
 
-        self.store.log_call(
+        self.log_db.log_call(
             tool_name=entry.name,
             tool_type=entry.tool_type.value,
             input_params=params,

@@ -24,8 +24,8 @@ def _tool_to_dict(entry) -> dict:
 @page_router.get("/", response_class=HTMLResponse)
 async def dashboard(request: Request):
     """Dashboard home page with summary stats."""
-    store = request.app.state.log_store
-    stats = store.get_stats()
+    log_db = request.app.state.log_db
+    stats = log_db.get_stats()
     tools = [_tool_to_dict(t) for t in registry.get_all()]
     return request.app.state.templates.TemplateResponse(
         request,
@@ -52,9 +52,9 @@ async def tool_detail(request: Request, name: str):
     if not entry:
         return HTMLResponse(content=f"<h1>Tool '{name}' not found</h1>", status_code=404)
 
-    store = request.app.state.log_store
-    recent_logs = store.get_logs(tool_name=name, limit=20)
-    tool_stats = store.get_tool_stats(name)
+    log_db = request.app.state.log_db
+    recent_logs = log_db.get_logs(tool_name=name, limit=20)
+    tool_stats = log_db.get_tool_stats(name)
 
     # Get source code for Python tools
     source = None
@@ -82,8 +82,8 @@ async def tool_detail(request: Request, name: str):
 @page_router.get("/logs", response_class=HTMLResponse)
 async def logs_page(request: Request):
     """Call logs page with filters."""
-    store = request.app.state.log_store
-    logs = store.get_logs(limit=200)
+    log_db = request.app.state.log_db
+    logs = log_db.get_logs(limit=200)
     tools = [_tool_to_dict(t) for t in registry.get_all()]
     return request.app.state.templates.TemplateResponse(
         request,
@@ -95,7 +95,7 @@ async def logs_page(request: Request):
 @page_router.get("/access", response_class=HTMLResponse)
 async def tokens_page(request: Request):
     """Token management page."""
-    store = request.app.state.log_store
+    token_db = request.app.state.token_db
     admin_token = request.app.state.admin_token
     admin_required = bool(admin_token)
 
@@ -105,7 +105,7 @@ async def tokens_page(request: Request):
         cookie_token = request.cookies.get("admin_token", "")
         authenticated = cookie_token == admin_token
 
-    tokens = store.get_tokens() if (not admin_required or authenticated) else []
+    tokens = token_db.get_all() if (not admin_required or authenticated) else []
     tools = registry.get_all()
     tool_info = {t.name: t.description for t in tools}
     tool_names = registry.names()
@@ -116,6 +116,30 @@ async def tokens_page(request: Request):
             "tokens": tokens,
             "tool_names": tool_names,
             "tool_info": tool_info,
+            "admin_required": admin_required,
+            "authenticated": authenticated,
+        },
+    )
+
+
+@page_router.get("/configs", response_class=HTMLResponse)
+async def configs_page(request: Request):
+    """Custom configs management page."""
+    config_db = request.app.state.config_db
+    admin_token = request.app.state.admin_token
+    admin_required = bool(admin_token)
+
+    authenticated = False
+    if admin_required:
+        cookie_token = request.cookies.get("admin_token", "")
+        authenticated = cookie_token == admin_token
+
+    configs = config_db.get_all() if (not admin_required or authenticated) else []
+    return request.app.state.templates.TemplateResponse(
+        request,
+        "configs.html",
+        {
+            "configs": configs,
             "admin_required": admin_required,
             "authenticated": authenticated,
         },

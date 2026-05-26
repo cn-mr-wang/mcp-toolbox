@@ -11,7 +11,7 @@ from mcp_toolbox.core.registry import registry
 from mcp_toolbox.core.token import DBTokenVerifier, filter_tools_by_token
 from mcp_toolbox.core.types import ToolEntry, ToolResult
 from mcp_toolbox.executors import executor_registry
-from mcp_toolbox.logging.middleware import LoggingMiddleware
+from mcp_toolbox.core.middleware import LoggingMiddleware
 
 
 # Map JSON Schema types to Python types for annotations
@@ -100,14 +100,15 @@ def _create_dynamic_tool_func(entry: ToolEntry, middleware: LoggingMiddleware):
     return handler
 
 
-def create_mcp_server(log_store, token: str = "", transport: str = "stdio", server_url: str = "") -> FastMCP:
+def create_mcp_server(log_db, token_db, token: str = "", transport: str = "stdio", server_url: str = "") -> FastMCP:
     """Create and configure the FastMCP server.
 
     Reads registered tools from the registry, filters by token permissions,
     and creates corresponding MCP tool functions with logging middleware.
 
     Args:
-        log_store: Call log store instance
+        log_db: Call log database instance
+        token_db: Token database instance
         token: If set, only tools allowed by this token are registered (stdio mode)
         transport: "stdio" or "http" - HTTP mode enables request-level token auth
         server_url: Server base URL (e.g. "http://localhost:9000") for auth settings
@@ -122,7 +123,7 @@ def create_mcp_server(log_store, token: str = "", transport: str = "stdio", serv
     # HTTP mode: enable Bearer token auth, register all tools
     # (different clients have different tokens; per-request filtering is handled by TokenVerifier)
     if transport == "http":
-        verifier = DBTokenVerifier(log_store)
+        verifier = DBTokenVerifier(token_db)
         kwargs["token_verifier"] = verifier
         kwargs["auth"] = AuthSettings(
             issuer_url=server_url or "http://127.0.0.1:8000",
@@ -130,14 +131,14 @@ def create_mcp_server(log_store, token: str = "", transport: str = "stdio", serv
         )
 
     mcp = FastMCP(**kwargs)
-    middleware = LoggingMiddleware(log_store)
+    middleware = LoggingMiddleware(log_db)
 
     # Get all registered entries
     entries = registry.get_all()
 
     # stdio mode: filter tools by startup token
     if transport == "stdio" and token:
-        token_info = log_store.get_token_by_value(token)
+        token_info = token_db.get_by_value(token)
         allowed = filter_tools_by_token(registry.names(), token_info)
         if not allowed:
             print(f"Warning: Token is invalid, disabled, or has no allowed tools. "

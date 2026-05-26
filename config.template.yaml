@@ -10,8 +10,16 @@ mcp:
   # token: "your-mcp-token"  # MCP 工具 Token，HTTP 模式下用于请求级认证
 
 database:
-  log_path: "mcp_toolbox.db"
-  retention_days: 7      # 日志保留天数（最少1天）
+  type: sqlite            # sqlite（默认）或 mysql
+  log_path: "mcp_toolbox.db"   # SQLite 专用
+  retention_days: 7       # 日志保留天数（最少1天）
+
+  # MySQL 配置（type=mysql 时生效）
+  # host: "localhost"
+  # port: 3306
+  # user: "root"
+  # password: ""
+  # database: "mcp_toolbox"
 
 # 工具加载配置
 tools:
@@ -37,10 +45,3 @@ tools:
 
 # java:
 #   java_home: "/usr/lib/jvm/java-17"
-
-# 数据库命名连接（工具中用 connection="my_db" 引用）
-# 开发和生产环境配置不同连接，工具代码无需修改
-sql_connections:
-  # dev_db: "sqlite:///dev.db"
-  # prod_db: "postgresql://user:pass@prod-host:5432/mydb"
-  # analytics: "mysql://user:pass@analytics-host:3306/warehouse"

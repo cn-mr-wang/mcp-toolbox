@@ -5,7 +5,7 @@
 <div class="space-y-8">
     <div>
         <h1 class="text-2xl font-bold text-gray-900 dark:text-gray-100" data-i18n="logs.title">Call Logs</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-slate-400">View and filter tool invocation history</p>
+        <p class="mt-1 text-sm text-gray-500 dark:text-slate-400" data-i18n="logs.subtitle">View and filter tool invocation history</p>
     </div>
 
     <!-- Filters -->
@@ -32,14 +32,14 @@
                 <label class="text-xs font-semibold text-gray-400 dark:text-slate-500 mr-2 uppercase tracking-wider" data-i18n="logs.error_type">Error Type:</label>
                 <select id="filter-category" onchange="applyFilters()" class="border border-gray-200 dark:border-slate-600 rounded-lg px-3 py-1.5 text-sm bg-white dark:bg-slate-700 dark:text-gray-100 focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all">
                     <option value="" data-i18n="logs.all">All</option>
-                    <option value="timeout">Timeout</option>
-                    <option value="connection">Connection</option>
-                    <option value="permission">Permission</option>
-                    <option value="not_found">Not Found</option>
-                    <option value="parameter">Parameter</option>
-                    <option value="execution">Execution</option>
-                    <option value="config">Config</option>
-                    <option value="unknown">Unknown</option>
+                    <option value="timeout" data-i18n="logs.error_timeout">Timeout</option>
+                    <option value="connection" data-i18n="logs.error_connection">Connection</option>
+                    <option value="permission" data-i18n="logs.error_permission">Permission</option>
+                    <option value="not_found" data-i18n="logs.error_not_found">Not Found</option>
+                    <option value="parameter" data-i18n="logs.error_parameter">Parameter</option>
+                    <option value="execution" data-i18n="logs.error_execution">Execution</option>
+                    <option value="config" data-i18n="logs.error_config">Config</option>
+                    <option value="unknown" data-i18n="logs.error_unknown">Unknown</option>
                 </select>
             </div>
             <button onclick="loadLogs()" class="bg-slate-900 dark:bg-blue-600 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-blue-700 transition-colors shadow-sm" data-i18n="logs.refresh">

@@ -1,5 +1,6 @@
 """REST API endpoints for the MCP Toolbox dashboard."""
 
+import yaml
 from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import JSONResponse
 
@@ -132,8 +133,8 @@ def list_logs(
     offset: int = Query(0),
 ):
     """Get call logs with optional filters."""
-    store = request.app.state.log_store
-    logs = store.get_logs(
+    log_db = request.app.state.log_db
+    logs = log_db.get_logs(
         tool_name=tool_name, status=status, limit=limit, offset=offset
     )
     return {
@@ -147,8 +148,8 @@ def list_logs(
 @api_router.get("/logs/{log_id}")
 def get_log(log_id: int, request: Request):
     """Get a single log entry by ID."""
-    store = request.app.state.log_store
-    log = store.get_log_by_id(log_id)
+    log_db = request.app.state.log_db
+    log = log_db.get_log_by_id(log_id)
     if not log:
         return {"error": f"Log entry {log_id} not found"}
     return log
@@ -157,15 +158,15 @@ def get_log(log_id: int, request: Request):
 @api_router.get("/stats")
 def get_stats(request: Request):
     """Get summary statistics."""
-    store = request.app.state.log_store
-    return store.get_stats()
+    log_db = request.app.state.log_db
+    return log_db.get_stats()
 
 
 @api_router.get("/stats/{tool_name}")
 def get_tool_stats(tool_name: str, request: Request):
     """Get stats for a specific tool."""
-    store = request.app.state.log_store
-    return store.get_tool_stats(tool_name)
+    log_db = request.app.state.log_db
+    return log_db.get_tool_stats(tool_name)
 
 
 # ── Token Management API ───────────────────────────────────────────
@@ -191,8 +192,8 @@ def list_tokens(request: Request, x_admin_token: str = Header(default="")):
     """List all tokens. Requires admin."""
     if not _check_admin(request, x_admin_token):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    store = request.app.state.log_store
-    return store.get_tokens()
+    token_db = request.app.state.token_db
+    return token_db.get_all()
 
 
 @api_router.post("/tokens")
@@ -207,8 +208,8 @@ async def create_token(request: Request, x_admin_token: str = Header(default="")
         return JSONResponse({"error": "Name is required"}, status_code=400)
 
     token_str = generate_token()
-    store = request.app.state.log_store
-    token = store.create_token(name=name, token=token_str, allowed_tools=allowed_tools)
+    token_db = request.app.state.token_db
+    token = token_db.create(name=name, token=token_str, allowed_tools=allowed_tools)
     return token
 
 
@@ -218,8 +219,8 @@ async def update_token(token_id: int, request: Request, x_admin_token: str = Hea
     if not _check_admin(request, x_admin_token):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
     body = await request.json()
-    store = request.app.state.log_store
-    token = store.update_token(token_id, **body)
+    token_db = request.app.state.token_db
+    token = token_db.update(token_id, **body)
     if not token:
         return JSONResponse({"error": "Token not found"}, status_code=404)
     return token
@@ -230,7 +231,80 @@ def delete_token(token_id: int, request: Request, x_admin_token: str = Header(de
     """Delete a token. Requires admin."""
     if not _check_admin(request, x_admin_token):
         return JSONResponse({"error": "Unauthorized"}, status_code=401)
-    store = request.app.state.log_store
-    if store.delete_token(token_id):
+    token_db = request.app.state.token_db
+    if token_db.delete(token_id):
         return {"ok": True}
     return JSONResponse({"error": "Token not found"}, status_code=404)
+
+
+# ── Custom Config endpoints ──────────────────────────────────────
+
+@api_router.get("/configs")
+def list_configs(request: Request, x_admin_token: str = Header(default="")):
+    """List all custom configs. Requires admin."""
+    if not _check_admin(request, x_admin_token):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    config_db = request.app.state.config_db
+    return config_db.get_all()
+
+
+@api_router.post("/configs")
+def create_config(body: dict, request: Request, x_admin_token: str = Header(default="")):
+    """Create a custom config. Requires admin."""
+    if not _check_admin(request, x_admin_token):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    name = body.get("name", "").strip()
+    content = body.get("content", "").strip()
+    description = body.get("description", "").strip()
+    if not name:
+        return JSONResponse({"error": "Name is required"}, status_code=400)
+    if not content:
+        return JSONResponse({"error": "Content is required"}, status_code=400)
+    # Validate YAML
+    try:
+        yaml.safe_load(content)
+    except yaml.YAMLError as e:
+        return JSONResponse({"error": f"Invalid YAML: {e}"}, status_code=400)
+    config_db = request.app.state.config_db
+    if config_db.get_by_name(name):
+        return JSONResponse({"error": f"Config '{name}' already exists"}, status_code=409)
+    config = config_db.create(name, content, description)
+    # Reload config store
+    from mcp_toolbox.core.config_store import config_store
+    config_store.reload(config_db)
+    return config
+
+
+@api_router.put("/configs/{config_id}")
+def update_config(config_id: int, body: dict, request: Request, x_admin_token: str = Header(default="")):
+    """Update a custom config. Requires admin."""
+    if not _check_admin(request, x_admin_token):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    # Validate YAML if content is being updated
+    if "content" in body:
+        try:
+            yaml.safe_load(body["content"])
+        except yaml.YAMLError as e:
+            return JSONResponse({"error": f"Invalid YAML: {e}"}, status_code=400)
+    config_db = request.app.state.config_db
+    result = config_db.update(config_id, **body)
+    if not result:
+        return JSONResponse({"error": "Config not found"}, status_code=404)
+    # Reload config store
+    from mcp_toolbox.core.config_store import config_store
+    config_store.reload(config_db)
+    return result
+
+
+@api_router.delete("/configs/{config_id}")
+def delete_config(config_id: int, request: Request, x_admin_token: str = Header(default="")):
+    """Delete a custom config. Requires admin."""
+    if not _check_admin(request, x_admin_token):
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    config_db = request.app.state.config_db
+    if config_db.delete(config_id):
+        # Reload config store
+        from mcp_toolbox.core.config_store import config_store
+        config_store.reload(config_db)
+        return {"ok": True}
+    return JSONResponse({"error": "Config not found"}, status_code=404)

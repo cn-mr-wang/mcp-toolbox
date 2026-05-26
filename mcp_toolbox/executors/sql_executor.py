@@ -1,78 +1,32 @@
 """SQL tool executor - executes SQL queries against databases."""
 
 import re
+import threading
 import time
 from urllib.parse import urlparse
 
 from mcp_toolbox.core.errors import ErrorCategory, format_error
 from mcp_toolbox.core.types import ToolEntry, ToolResult
 from mcp_toolbox.executors.base import BaseExecutor
+from mcp_toolbox.executors.config_vars import resolve_config_vars
 from mcp_toolbox.executors.shell_executor import _load_file
 
 
-class ConnectionPool:
-    """Named connection pool. Connections are lazily created and reused."""
-
-    def __init__(self):
-        self._connections = {}       # name -> connection object
-        self._connection_strings = {}  # name -> connection string
-        self._lock = __import__("threading").Lock()
-
-    def register(self, name: str, connection_string: str):
-        """Register a named connection string."""
-        self._connection_strings[name] = connection_string
-
-    def get(self, name: str):
-        """Get or create a connection by name."""
-        with self._lock:
-            if name in self._connections:
-                conn = self._connections[name]
-                # Verify connection is still alive
-                try:
-                    if hasattr(conn, "ping"):
-                        conn.ping(reconnect=True)
-                    elif hasattr(conn, "execute"):
-                        conn.execute("SELECT 1")
-                    return conn
-                except Exception:
-                    # Connection dead, remove and recreate
-                    self._connections.pop(name, None)
-
-            if name not in self._connection_strings:
-                raise ValueError(f"Unknown connection name: '{name}'")
-
-            conn = _create_connection(self._connection_strings[name])
-            self._connections[name] = conn
-            return conn
-
-    def close_all(self):
-        """Close all pooled connections."""
-        with self._lock:
-            for conn in self._connections.values():
-                try:
-                    conn.close()
-                except Exception:
-                    pass
-            self._connections.clear()
-
-
-# Global connection pool
-connection_pool = ConnectionPool()
+# Connection pool keyed by connection string
+_connection_pool: dict[str, object] = {}
+_pool_lock = threading.Lock()
 
 
 def _create_connection(conn_str: str):
     """Create a database connection from a connection string."""
     if conn_str.startswith("sqlite"):
         import sqlite3
-        # sqlite:///absolute/path -> /absolute/path
-        # sqlite://relative/path -> relative/path
-        # sqlite:///relative/path -> /relative/path (3 slashes = empty authority)
         parsed = urlparse(conn_str)
         path = parsed.path
         if not path:
             path = conn_str.replace("sqlite:", "").lstrip("/")
         try:
-            return sqlite3.connect(path)
+            return sqlite3.connect(path, check_same_thread=False)
         except sqlite3.DatabaseError as e:
             if "readonly" in str(e).lower() or "permission" in str(e).lower():
                 raise PermissionError(f"SQLite 数据库只读或无权限: {path}") from e
@@ -102,6 +56,27 @@ def _create_connection(conn_str: str):
             )
     else:
         raise ValueError(f"不支持的数据库连接协议: {conn_str.split('://')[0]}")
+
+
+def _get_connection(conn_str: str):
+    """Get or create a pooled connection by connection string."""
+    with _pool_lock:
+        if conn_str in _connection_pool:
+            conn = _connection_pool[conn_str]
+            # Verify connection is still alive
+            try:
+                if hasattr(conn, "ping"):
+                    conn.ping(reconnect=True)
+                elif hasattr(conn, "execute"):
+                    conn.execute("SELECT 1")
+                return conn
+            except Exception:
+                # Connection dead, remove and recreate
+                _connection_pool.pop(conn_str, None)
+
+        conn = _create_connection(conn_str)
+        _connection_pool[conn_str] = conn
+        return conn
 
 
 def _get_driver_prefix(conn_str: str) -> str:
@@ -149,13 +124,8 @@ def _build_query(template: str, params: dict, driver: str) -> tuple:
 class SQLExecutor(BaseExecutor):
     """Executes SQL tools by connecting to databases and running queries.
 
-    Connection can be specified in two ways:
-    1. Direct: connection="sqlite:///path/to/db"
-    2. Named:  connection="my_db" (resolved from config sql_connections or connection pool)
-
-    Query can be specified in two ways:
-    1. Inline: query="SELECT * FROM users WHERE id = {id}"
-    2. File:   query_file="queries/get_user.sql" (relative to the tool module)
+    Connection string must be specified using {config:...} template variable.
+    Query can be specified inline or loaded from a file.
 
     Supports: SQLite, PostgreSQL, MySQL.
     """
@@ -165,10 +135,13 @@ class SQLExecutor(BaseExecutor):
         query_template = entry.metadata.get("query", "")
         query_file = entry.metadata.get("query_file", "")
 
+        # Resolve {config:...} in connection string
+        connection_ref = resolve_config_vars(connection_ref)
+
         if not connection_ref:
             return ToolResult(
                 success=False, output=None,
-                error="[config] 未指定 'connection' 配置\n建议: 在 @toolbox.tool() 中设置 connection 参数（命名连接或直接连接字符串）",
+                error="[config] 未指定 'connection' 配置\n建议: 使用 {config:name.key} 从配置项获取连接字符串",
                 error_category=ErrorCategory.CONFIGURATION.value,
                 duration_ms=0.0,
             )
@@ -184,6 +157,9 @@ class SQLExecutor(BaseExecutor):
                     duration_ms=0.0,
                 )
 
+        # Resolve {config:...} in query template
+        query_template = resolve_config_vars(query_template)
+
         if not query_template:
             return ToolResult(
                 success=False, output=None,
@@ -192,16 +168,9 @@ class SQLExecutor(BaseExecutor):
                 duration_ms=0.0,
             )
 
-        # Resolve connection: named or direct
-        close_conn = False
+        # Get pooled connection (reuses existing connection)
         try:
-            if "://" in connection_ref:
-                conn_str = connection_ref
-                conn = _create_connection(conn_str)
-                close_conn = True
-            else:
-                conn = connection_pool.get(connection_ref)
-                conn_str = connection_pool._connection_strings.get(connection_ref, "")
+            conn = _get_connection(connection_ref)
         except Exception as e:
             msg, category = format_error(e, entry.name)
             return ToolResult(
@@ -209,7 +178,7 @@ class SQLExecutor(BaseExecutor):
                 error_category=category.value, duration_ms=0.0,
             )
 
-        driver = _get_driver_prefix(conn_str)
+        driver = _get_driver_prefix(connection_ref)
         query, query_params = _build_query(query_template, params, driver)
 
         start = time.monotonic()
@@ -241,6 +210,3 @@ class SQLExecutor(BaseExecutor):
                 success=False, output=None, error=msg,
                 error_category=category.value, duration_ms=duration,
             )
-        finally:
-            if close_conn:
-                conn.close()

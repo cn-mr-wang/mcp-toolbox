@@ -9,12 +9,12 @@ from mcp.server.auth.provider import AccessToken
 class DBTokenVerifier:
     """Verifies MCP tokens against the SQLite database for HTTP transport auth."""
 
-    def __init__(self, log_store):
-        self.log_store = log_store
+    def __init__(self, token_db):
+        self.token_db = token_db
 
     async def verify_token(self, token: str) -> AccessToken | None:
         """Verify a bearer token. Returns AccessToken if valid, None otherwise."""
-        token_info = self.log_store.get_token_by_value(token)
+        token_info = self.token_db.get_by_value(token)
         if token_info and token_info.get("enabled"):
             return AccessToken(token=token, client_id="", scopes=[])
         return None

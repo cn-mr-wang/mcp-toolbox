@@ -8,6 +8,7 @@ from pathlib import Path
 from mcp_toolbox.core.errors import ErrorCategory, format_error
 from mcp_toolbox.core.types import ToolEntry, ToolResult
 from mcp_toolbox.executors.base import BaseExecutor
+from mcp_toolbox.executors.config_vars import resolve_config_vars
 
 
 def _load_file(file_path: str, module_name: str = "") -> str | None:
@@ -72,7 +73,8 @@ class ShellExecutor(BaseExecutor):
                 duration_ms=0.0,
             )
 
-        # Interpolate params into command template
+        # Resolve {config:...} variables first, then interpolate params
+        command_template = resolve_config_vars(command_template)
         try:
             command = command_template.format(**params)
         except KeyError as e:

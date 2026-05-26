@@ -7,16 +7,16 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
-from mcp_toolbox.logging.store import CallLogStore
 
-
-def create_app(log_store: CallLogStore, admin_token: str = "", mcp_server=None) -> FastAPI:
+def create_app(log_db, token_db, admin_token: str = "", mcp_server=None, config_db=None) -> FastAPI:
     """Create the FastAPI application.
 
     Args:
-        log_store: Shared call log store instance
+        log_db: Call log database instance
+        token_db: Token database instance
         admin_token: Admin token for managing tokens (empty = no auth required)
         mcp_server: Optional FastMCP server instance for HTTP transport
+        config_db: Optional ConfigDB instance for custom configs
 
     Returns:
         Configured FastAPI app
@@ -45,9 +45,11 @@ def create_app(log_store: CallLogStore, admin_token: str = "", mcp_server=None) 
     app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     # Store shared state
-    app.state.log_store = log_store
+    app.state.log_db = log_db
+    app.state.token_db = token_db
     app.state.templates = templates
     app.state.admin_token = admin_token
+    app.state.config_db = config_db
 
     # Mount routes
     from mcp_toolbox.web.routes_api import api_router

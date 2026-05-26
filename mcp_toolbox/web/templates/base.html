@@ -143,6 +143,7 @@
                         <a href="/tools" class="nav-link text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" data-i18n="nav.tools">Tools</a>
                         <a href="/logs" class="nav-link text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" data-i18n="nav.logs">Logs</a>
                         <a href="/access" class="nav-link text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" data-i18n="nav.tokens">Access</a>
+                        <a href="/configs" class="nav-link text-slate-400 hover:text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors" data-i18n="nav.configs">Configs</a>
                     </div>
                 </div>
                 <!-- Right: language + theme toggles -->
@@ -192,7 +193,9 @@
             'nav.tools': '工具',
             'nav.logs': '日志',
             'nav.tokens': '访问控制',
+            'nav.configs': '自定义配置',
             'dashboard.title': '仪表盘',
+            'dashboard.subtitle': 'MCP Toolbox — 通用 MCP 工具框架',
             'dashboard.total_tools': '工具总数',
             'dashboard.total_calls': '调用次数',
             'dashboard.success_rate': '成功率',
@@ -265,6 +268,17 @@
             'logs.output': '输出',
             'logs.category': '分类',
             'logs.no_logs': '暂无日志记录。',
+            'logs.subtitle': '查看和筛选工具调用历史',
+            'logs.error_timeout': '超时',
+            'logs.error_connection': '连接',
+            'logs.error_permission': '权限',
+            'logs.error_not_found': '未找到',
+            'logs.error_parameter': '参数',
+            'logs.error_execution': '执行',
+            'logs.error_config': '配置',
+            'logs.error_unknown': '未知',
+            'tools.type': '类型',
+            'tools.registered_count': '{count} 个工具已注册',
             'tokens.title': '访问控制',
             'tokens.new': '+ 新建令牌',
             'tokens.admin_required': '需要管理员令牌',
@@ -291,13 +305,65 @@
             'tokens.save': '保存',
             'tokens.allowed_tools_label': '允许的工具',
             'tokens.leave_unchecked': '不勾选 = 允许使用全部工具',
+            'tokens.select_all': '全选',
+            'tokens.enter_token_hint': '请输入 Token',
+            'tokens.invalid_token': 'Token 无效',
+            'tokens.copied': '已复制',
+            'tokens.admin_token_placeholder': '管理员 Token',
+            'common.success': '成功',
+            'common.error': '失败',
+            'common.unknown_error': '未知错误',
+            'common.name_required': '名称不能为空',
+            'common.content_required': 'YAML 内容不能为空',
+            'common.save_failed': '保存失败',
+            'common.create_failed': '创建失败',
+            'common.running': '执行中...',
+            'configs.new_config_title': '新建配置',
+            'configs.edit_config_title': '编辑配置',
+            'configs.delete_confirm': '确定删除配置「{name}」？',
+            'tokens.new_token_title': '新建 Token',
+            'tokens.edit_token_title': '编辑 Token',
+            'tokens.deselect_all': '取消全选',
+            'tokens.copy_token': '复制 Token',
+            'tokens.delete_confirm': '确定删除 Token「{name}」？',
+            'tokens.subtitle': '管理 MCP 客户端的工具访问权限',
+            'tokens.created_success': 'Token 创建成功',
+            'tokens.created_hint': '关闭后不会再次完整显示，请及时复制',
+            'tokens.close': '关闭',
+            'configs.title': '自定义配置',
+            'configs.subtitle': '管理工具可读取的 YAML 配置项',
+            'configs.new_config': '+ 新建配置',
+            'configs.edit_config': '编辑配置',
+            'configs.need_admin': '需要 Admin Token',
+            'configs.need_admin_desc': '输入 Admin Token 以管理配置',
+            'configs.login': '登录',
+            'configs.name': '名称',
+            'configs.description': '说明',
+            'configs.preview': '内容预览',
+            'configs.updated_at': '更新时间',
+            'configs.actions': '操作',
+            'configs.edit': '编辑',
+            'configs.delete': '删除',
+            'configs.no_configs': '暂无自定义配置，点击"新建配置"创建。',
+            'configs.usage_title': '在工具中使用',
+            'configs.name_label': '名称',
+            'configs.name_placeholder': '如 email_server、api_keys',
+            'configs.desc_label': '说明',
+            'configs.desc_placeholder': '配置用途说明（可选）',
+            'configs.content_label': 'YAML 内容',
+            'configs.content_placeholder': 'smtp:\n  host: smtp.example.com\n  port: 587',
+            'configs.cancel': '取消',
+            'configs.save': '保存',
+            'configs.confirm': '确定',
         },
         en: {
             'nav.dashboard': 'Dashboard',
             'nav.tools': 'Tools',
             'nav.logs': 'Logs',
             'nav.tokens': 'Access',
+            'nav.configs': 'Configs',
             'dashboard.title': 'Dashboard',
+            'dashboard.subtitle': 'MCP Toolbox — Generic MCP Tool Framework',
             'dashboard.total_tools': 'Total Tools',
             'dashboard.total_calls': 'Total Calls',
             'dashboard.success_rate': 'Success Rate',
@@ -370,6 +436,17 @@
             'logs.output': 'Output',
             'logs.category': 'Category',
             'logs.no_logs': 'No log entries found.',
+            'logs.subtitle': 'View and filter tool invocation history',
+            'logs.error_timeout': 'Timeout',
+            'logs.error_connection': 'Connection',
+            'logs.error_permission': 'Permission',
+            'logs.error_not_found': 'Not Found',
+            'logs.error_parameter': 'Parameter',
+            'logs.error_execution': 'Execution',
+            'logs.error_config': 'Config',
+            'logs.error_unknown': 'Unknown',
+            'tools.type': 'Type',
+            'tools.registered_count': '{count} tools registered',
             'tokens.title': 'Access Control',
             'tokens.new': '+ New Token',
             'tokens.admin_required': 'Admin token required',
@@ -396,21 +473,95 @@
             'tokens.save': 'Save',
             'tokens.allowed_tools_label': 'Allowed Tools',
             'tokens.leave_unchecked': 'Leave unchecked = all tools allowed',
+            'tokens.select_all': 'Select All',
+            'tokens.enter_token_hint': 'Please enter a token',
+            'tokens.invalid_token': 'Invalid token',
+            'tokens.copied': 'Copied!',
+            'tokens.admin_token_placeholder': 'Admin Token',
+            'common.success': 'Success',
+            'common.error': 'Error',
+            'common.unknown_error': 'Unknown error',
+            'common.name_required': 'Name is required',
+            'common.content_required': 'Content is required',
+            'common.save_failed': 'Save failed',
+            'common.create_failed': 'Create failed',
+            'common.running': 'Running...',
+            'configs.new_config_title': 'New Config',
+            'configs.edit_config_title': 'Edit Config',
+            'configs.delete_confirm': 'Delete config "{name}"?',
+            'tokens.new_token_title': 'New Token',
+            'tokens.edit_token_title': 'Edit Token',
+            'tokens.deselect_all': 'Deselect All',
+            'tokens.copy_token': 'Copy Token',
+            'tokens.delete_confirm': 'Delete token "{name}"?',
+            'tokens.subtitle': 'Manage tool access for MCP clients',
+            'tokens.created_success': 'Token Created',
+            'tokens.created_hint': 'It will not be shown again after closing. Please copy it now.',
+            'tokens.close': 'Close',
+            'configs.title': 'Custom Configs',
+            'configs.subtitle': 'Manage YAML configs accessible by tools',
+            'configs.new_config': '+ New Config',
+            'configs.edit_config': 'Edit Config',
+            'configs.need_admin': 'Admin Token Required',
+            'configs.need_admin_desc': 'Enter admin token to manage configs',
+            'configs.login': 'Login',
+            'configs.name': 'Name',
+            'configs.description': 'Description',
+            'configs.preview': 'Preview',
+            'configs.updated_at': 'Updated',
+            'configs.actions': 'Actions',
+            'configs.edit': 'Edit',
+            'configs.delete': 'Delete',
+            'configs.no_configs': 'No configs yet. Click "New Config" to create one.',
+            'configs.usage_title': 'Usage in Tools',
+            'configs.name_label': 'Name',
+            'configs.name_placeholder': 'e.g. email_server, api_keys',
+            'configs.desc_label': 'Description',
+            'configs.desc_placeholder': 'Config description (optional)',
+            'configs.content_label': 'YAML Content',
+            'configs.content_placeholder': 'smtp:\n  host: smtp.example.com\n  port: 587',
+            'configs.cancel': 'Cancel',
+            'configs.save': 'Save',
+            'configs.confirm': 'Confirm',
         }
     };
 
     let currentLang = localStorage.getItem('lang') || (navigator.language.startsWith('zh') ? 'zh' : 'en');
 
+    // Helper function for JavaScript to get i18n translations
+    // Supports placeholders: translate('configs.delete_confirm', {name: 'myconfig'})
+    function translate(key, params, fallback) {
+        let val = I18N[currentLang]?.[key] || fallback || key;
+        if (params && typeof params === 'object') {
+            for (const [k, v] of Object.entries(params)) {
+                val = val.replace(`{${k}}`, v);
+            }
+        }
+        return val;
+    }
+
     function applyI18n() {
         document.querySelectorAll('[data-i18n]').forEach(el => {
             const key = el.getAttribute('data-i18n');
-            const val = I18N[currentLang]?.[key];
+            let val = I18N[currentLang]?.[key];
             if (val !== undefined) {
+                // Replace placeholders like {count} from data-count attribute
+                if (el.dataset.count !== undefined) {
+                    val = val.replace('{count}', el.dataset.count);
+                }
                 if (el.tagName === 'INPUT' && el.hasAttribute('placeholder')) {
                     el.placeholder = val;
                 } else {
                     el.textContent = val;
                 }
+            }
+        });
+        // Handle data-i18n-placeholder for textarea and other elements
+        document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+            const key = el.getAttribute('data-i18n-placeholder');
+            const val = I18N[currentLang]?.[key];
+            if (val !== undefined) {
+                el.placeholder = val;
             }
         });
         document.getElementById('lang-toggle').textContent = currentLang === 'zh' ? 'EN' : '中';
