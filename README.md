@@ -427,12 +427,27 @@ def java_tool(action: str) -> dict:
   "mcpServers": {
     "mcp-toolbox": {
       "command": "python",
-      "args": ["-m", "mcp_toolbox", "--no-web"],
+      "args": ["-m", "mcp_toolbox", "--no-web", "--token", "your-token"],
       "cwd": "/path/to/mcp_toolbox"
     }
   }
 }
 ```
+
+> 也可通过环境变量传入 Token（更安全，避免出现在配置文件中）：
+>
+> ```json
+> {
+>   "mcpServers": {
+>     "mcp-toolbox": {
+>       "command": "python",
+>       "args": ["-m", "mcp_toolbox", "--no-web"],
+>       "env": { "MCP_TOOLBOX_TOKEN": "your-token" },
+>       "cwd": "/path/to/mcp_toolbox"
+>     }
+>   }
+> }
+> ```
 
 ### HTTP 模式
 
@@ -532,16 +547,21 @@ mcp_toolbox/
     │   ├── registry.py        # 工具注册表
     │   ├── decorators.py      # @toolbox.tool() 装饰器
     │   ├── errors.py          # 统一异常处理
-    │   └── token.py           # Token 权限管理
+    │   ├── token.py           # Token 权限管理
+    │   ├── token_db.py        # Token 数据库层
+    │   ├── database.py        # 数据库抽象接口
+    │   ├── sqlite_adapter.py  # SQLite 适配器
+    │   ├── mysql_adapter.py   # MySQL 适配器
+    │   ├── log_db.py          # 调用日志数据库层
+    │   ├── config_db.py       # 自定义配置数据库层
+    │   ├── config_store.py    # 配置缓存（工具内 get_config()）
+    │   └── middleware.py      # 透明日志中间件
     ├── executors/
     │   ├── python_executor.py
     │   ├── shell_executor.py
     │   ├── java_executor.py
-    │   └── sql_executor.py
-    ├── logging/
-    │   ├── models.py          # SQLite 表结构
-    │   ├── store.py           # 日志读写
-    │   └── middleware.py      # 透明日志中间件
+    │   ├── sql_executor.py
+    │   └── config_vars.py     # {config:name.key} 模板变量解析
     ├── server/
     │   └── mcp_server.py      # FastMCP 集成
     └── web/
@@ -592,7 +612,7 @@ git clone https://github.com/cn-mr-wang/mcp-toolbox.git
 cd mcp-toolbox
 python -m venv .venv && source .venv/bin/activate
 pip install -e .
-cp config.templete.yaml config.yaml   # Copy config template, edit as needed
+cp config.template.yaml config.yaml   # Copy config template, edit as needed
 
 # Define tools in tools/*.py, then:
 python -m mcp_toolbox
@@ -629,7 +649,22 @@ Missing dependencies are auto-installed on startup. Already installed packages a
   "mcpServers": {
     "mcp-toolbox": {
       "command": "python",
+      "args": ["-m", "mcp_toolbox", "--no-web", "--token", "your-token"],
+      "cwd": "/path/to/mcp_toolbox"
+    }
+  }
+}
+```
+
+Or use environment variable (safer, avoids tokens in config files):
+
+```json
+{
+  "mcpServers": {
+    "mcp-toolbox": {
+      "command": "python",
       "args": ["-m", "mcp_toolbox", "--no-web"],
+      "env": { "MCP_TOOLBOX_TOKEN": "your-token" },
       "cwd": "/path/to/mcp_toolbox"
     }
   }
